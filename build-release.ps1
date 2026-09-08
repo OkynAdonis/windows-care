@@ -4,30 +4,38 @@ param([string]$Version = '1.0.0')
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $site = Join-Path $root 'site'
-$archive = Join-Path $root 'SCRIPT_TOOL.zip'
+$app = Join-Path $root 'app'
+$docs = Join-Path $root 'docs'
+$release = Join-Path $root 'release'
+$archive = Join-Path $release 'SCRIPT_TOOL.zip'
 $siteArchive = Join-Path $site 'SCRIPT_TOOL.zip'
 $versionFile = Join-Path $site 'version.json'
 $requiredFiles = @('SCRIPT_TOOL.bat', 'SCRIPT_TOOL.ps1', 'README')
+$sourceFiles = @('SCRIPT_TOOL.bat', 'SCRIPT_TOOL.ps1') | ForEach-Object { Join-Path $app $_ }
+$stage = Join-Path $env:TEMP "windows-care-release-$([guid]::NewGuid().ToString())"
 
 Write-Host 'TECH EXCHANGE / BUILD RELEASE'
 
 foreach ($file in $requiredFiles) {
-    $path = Join-Path $root $file
+    $path = if ($file -eq 'README') { Join-Path $root 'README.md' } else { Join-Path $app $file }
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
         throw "Fichier requis absent : $file"
     }
 }
 
 $parseErrors = $null
-[System.Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'SCRIPT_TOOL.ps1'), [ref]$null, [ref]$parseErrors) | Out-Null
+[System.Management.Automation.Language.Parser]::ParseFile((Join-Path $app 'SCRIPT_TOOL.ps1'), [ref]$null, [ref]$parseErrors) | Out-Null
 if ($parseErrors.Count -gt 0) {
     $messages = ($parseErrors | ForEach-Object { $_.Message }) -join '; '
     throw "Syntaxe PowerShell invalide : $messages"
 }
 
-New-Item -ItemType Directory -Force -Path $site | Out-Null
+New-Item -ItemType Directory -Force -Path $site, $release, $stage | Out-Null
 Remove-Item -LiteralPath $archive, $siteArchive -Force -ErrorAction SilentlyContinue
-Compress-Archive -Path ($requiredFiles | ForEach-Object { Join-Path $root $_ }) -DestinationPath $archive -CompressionLevel Optimal
+Copy-Item (Join-Path $app 'SCRIPT_TOOL.bat') (Join-Path $stage 'SCRIPT_TOOL.bat')
+Copy-Item (Join-Path $app 'SCRIPT_TOOL.ps1') (Join-Path $stage 'SCRIPT_TOOL.ps1')
+Copy-Item (Join-Path $root 'README.md') (Join-Path $stage 'README')
+Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $archive -CompressionLevel Optimal
 Copy-Item -LiteralPath $archive -Destination $siteArchive -Force
 
 $archiveInfo = Get-Item -LiteralPath $siteArchive
@@ -50,3 +58,4 @@ Write-Host "Archive : $siteArchive"
 Write-Host "Taille  : $($manifest.SizeKB) Ko"
 Write-Host "SHA-256 : $hash"
 Write-Host "Manifest: $versionFile"
+Remove-Item -LiteralPath $stage -Recurse -Force

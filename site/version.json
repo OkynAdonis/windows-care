@@ -4,9 +4,9 @@
     "Version":  "1.0.0",
     "ReleaseDate":  "2026-09-08",
     "Archive":  "SCRIPT_TOOL.zip",
-    "SizeBytes":  10637,
-    "SizeKB":  10.4,
-    "SHA256":  "14B4F74C70840F566FCE6900B4C9A7458802024DF20F1E5F5CC36481A41389C1",
+    "SizeBytes":  10140,
+    "SizeKB":  9.9,
+    "SHA256":  "5150DF84CB95BBC483AF740C5EF923F6A25BC8D7BDC0DC6776AB99203AB2115D",
     "Files":  [
                   "SCRIPT_TOOL.bat",
                   "SCRIPT_TOOL.ps1",

@@ -7,7 +7,7 @@ TECH EXCHANGE est la plateforme creee et developpee par son fondateur developpeu
 ## Demarrage
 
 1. Telecharger ou cloner le projet.
-2. Lancer `SCRIPT_TOOL.bat`.
+2. Lancer `app\SCRIPT_TOOL.bat`.
 3. Accepter l elevation administrateur lorsque Windows la demande.
 4. Choisir une action dans le menu vertical.
 
@@ -15,7 +15,7 @@ Le mode `-DryRun` permet de parcourir les actions sans modifier Windows.
 
 ## Release
 
-Le script `build-release.ps1` valide la syntaxe, verifie les fichiers requis, construit `SCRIPT_TOOL.zip`, calcule son SHA-256, copie l archive dans `site` et genere `site/version.json`.
+Le script `build-release.ps1` valide la syntaxe, verifie les fichiers requis dans `app`, construit `release\SCRIPT_TOOL.zip`, calcule son SHA-256, copie l archive dans `site` et genere `site/version.json`.
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\build-release.ps1 -Version 1.0.0
@@ -24,6 +24,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\build-release.ps1 -Version
 ## Site
 
 Le dossier `site` contient la page de presentation, le guide des 21 actions et l archive telechargeable. Le workflow GitHub Pages publie automatiquement le contenu de `site` a chaque push sur `main`.
+
+## Organisation
+
+- `app` : lanceur BAT et moteur PowerShell Windows Care ;
+- `site` : site public et archive telechargeable ;
+- `docs` : audits et documentation historique ;
+- `legacy` : anciens scripts conserves comme reference ;
+- `branding` : sources du logo TECH EXCHANGE ;
+- `release` : archives generees par le build ;
+- `build-release.ps1` : processus reproductible de publication.
 
 ## GitHub Pages
 
