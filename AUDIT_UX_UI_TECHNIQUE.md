@@ -269,29 +269,33 @@ Répondre avec les IDs à accepter, par exemple : `P0-01, P0-02, P1-01, P1-04`.
 
 ### Phase 1 : confiance et fiabilité
 
-- corriger les faux indicateurs du dashboard ;
-- ajouter version/hash/taille ;
-- fiabiliser les codes retour ;
-- nettoyer le CSS responsive ;
-- ajouter focus clavier ;
-- régénérer et valider l'archive.
+- [x] corriger les faux indicateurs du dashboard ;
+- [x] ajouter version/hash/taille ;
+- [x] fiabiliser les codes retour avec `Invoke-NativeCommand` ;
+- [x] nettoyer le CSS responsive ;
+- [x] ajouter focus clavier ;
+- [x] régénérer et valider l'archive.
 
 ### Phase 2 : expérience Windows Care
 
-- source centrale des 21 actions ;
-- guide généré ou synchronisé ;
-- assistant de réparation amélioré ;
-- rapports avant/après ;
-- profils avec restauration.
+- [ ] source centrale des 21 actions ;
+- [x] guide des 21 actions avec recherche ;
+- [x] assistant de réparation et rapports HTML ;
+- [x] profils avec restauration temporaire et coût énergétique relatif ;
+- [x] manifest de sauvegarde versionné.
 
 ### Phase 3 : diffusion TECH EXCHANGE
 
-- changelog ;
-- page produits ;
-- processus de release ;
-- hash public ;
-- signature ou installateur ;
-- documentation utilisateur complète.
+- [ ] changelog ;
+- [x] page produit et site statique ;
+- [x] processus de release avec `build-release.ps1` ;
+- [x] hash public dans `site/version.json` ;
+- [ ] signature ou installateur ;
+- [x] documentation utilisateur et workflow GitHub Pages.
+
+**État GitHub :** le dépôt local est initialisé et le remote cible est configuré sur
+`https://github.com/OkynAdonis/windows-care.git`. Le dépôt distant doit encore être
+créé depuis le compte GitHub avant le premier `git push`.
 
 ---
 
