@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Guide des 21 actions de Windows Care par TECH EXCHANGE.">
+  <link rel="icon" type="image/png" href="assets/TE.png">
+  <link rel="stylesheet" href="styles.css">
+  <title>Windows Care | Guide des actions</title>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand app-brand" href="index.html" aria-label="Windows Care accueil"><span>Windows Care</span></a>
+    <nav class="top-nav" aria-label="Navigation principale"><a href="index.html">Accueil</a><a class="contact" href="mailto:techexchange50@gmail.com">Nous contacter</a></nav>
+  </header>
+  <main>
+    <section class="guide-hero">
+      <p class="eyebrow">Windows Care / documentation</p>
+      <h1>21 actions,<br><em>un système plus clair.</em></h1>
+      <p>Ce guide explique chaque choix du menu avant son lancement. Les actions qui modifient Windows demandent une confirmation et créent une sauvegarde lorsque cela est nécessaire.</p>
+      <a class="button primary download-button" href="SCRIPT_TOOL.zip" download data-download>Télécharger Windows Care <span>↓</span></a>
+      <p class="download-meta">ZIP · 10,4 Ko · version 1.0.0 · 08/09/2026 · Windows 10/11<br>Droits administrateur requis pour les actions système · Mode simulation disponible</p>
+    </section>
+    <section class="guide-list section">
+      <div class="section-label">01 / Le menu complet</div>
+      <label class="guide-search" for="action-search"><span>Rechercher une action</span><input id="action-search" type="search" placeholder="Ex. réseau, nettoyage, confidentialité" autocomplete="off"></label>
+      <div class="action-list">
+        <article class="action-card reveal"><span class="action-number">01</span><div><h2>État système</h2><p>Affiche la version de Windows, le dernier démarrage, l’espace libre, le plan d’alimentation et les interfaces réseau actives.</p><small>DIAGNOSTIC · SANS MODIFICATION</small></div></article>
+        <article class="action-card reveal"><span class="action-number">02</span><div><h2>Score de santé du PC</h2><p>Calcule un score sur 100 à partir du stockage, du démarrage, de Defender, du pare-feu et de la connectivité réseau.</p><small>DIAGNOSTIC · RECOMMANDATIONS</small></div></article>
+        <article class="action-card reveal"><span class="action-number">03</span><div><h2>Rapport HTML de santé</h2><p>Génère un rapport consultable dans un navigateur avec le score, les catégories mesurées et l’identité TECH EXCHANGE.</p><small>RAPPORT · FICHIER LOCAL</small></div></article>
+        <article class="action-card reveal"><span class="action-number">04</span><div><h2>Assistant de réparation</h2><p>Propose un parcours selon le problème : PC lent, Internet lent, Windows Update, disque presque plein ou confidentialité.</p><small>ASSISTANCE · GUIDÉE</small></div></article>
+        <article class="action-card reveal"><span class="action-number">05</span><div><h2>Nettoyage système</h2><p>Supprime les fichiers temporaires, les éléments du Prefetch et vide la corbeille après confirmation.</p><small>MAINTENANCE · SAUVEGARDE</small></div></article>
+        <article class="action-card reveal"><span class="action-number">06</span><div><h2>Réparation Windows</h2><p>Exécute DISM pour réparer l’image Windows, puis SFC pour vérifier et restaurer les fichiers système.</p><small>RÉPARATION · OPÉRATION LONGUE</small></div></article>
+        <article class="action-card reveal"><span class="action-number">07</span><div><h2>DNS Google</h2><p>Configure 8.8.8.8 et 8.8.4.4 sur une interface réseau active choisie par l’utilisateur.</p><small>RÉSEAU · MODIFICATION</small></div></article>
+        <article class="action-card reveal"><span class="action-number">08</span><div><h2>DNS Cloudflare</h2><p>Configure 1.1.1.1 et 1.0.0.1 pour utiliser les résolveurs DNS publics de Cloudflare.</p><small>RÉSEAU · MODIFICATION</small></div></article>
+        <article class="action-card reveal"><span class="action-number">09</span><div><h2>Réinitialisation réseau</h2><p>Vide le cache DNS et réinitialise Winsock ainsi que la pile TCP/IP. Un redémarrage peut être nécessaire.</p><small>RÉSEAU · REDÉMARRAGE POSSIBLE</small></div></article>
+        <article class="action-card reveal"><span class="action-number">10</span><div><h2>Confidentialité et télémétrie</h2><p>Désactive certaines tâches de télémétrie et applique des politiques Windows de confidentialité documentées.</p><small>CONFIDENTIALITÉ · SAUVEGARDE</small></div></article>
+        <article class="action-card reveal"><span class="action-number">11</span><div><h2>Confidentialité Windows Search</h2><p>Réduit la recherche web, les fonctions cloud et certaines suggestions connectées de Windows Search.</p><small>CONFIDENTIALITÉ · SAUVEGARDE</small></div></article>
+        <article class="action-card reveal"><span class="action-number">12</span><div><h2>Profil Bureautique</h2><p>Active un profil orienté stabilité et performance quotidienne pour le travail et les usages courants.</p><small>PROFIL · PERFORMANCE</small></div></article>
+        <article class="action-card reveal"><span class="action-number">13</span><div><h2>Profil Gaming</h2><p>Active le plan Performances optimales pour privilégier la réactivité pendant les sessions de jeu.</p><small>PROFIL · PERFORMANCE</small></div></article>
+        <article class="action-card reveal"><span class="action-number">14</span><div><h2>Profil Portable</h2><p>Active le plan Équilibré pour préserver l’autonomie et limiter la consommation d’un ordinateur portable.</p><small>PROFIL · AUTONOMIE</small></div></article>
+        <article class="action-card reveal"><span class="action-number">15</span><div><h2>Profil Confidentialité</h2><p>Regroupe les réglages de télémétrie et de Windows Search dans un parcours unique.</p><small>PROFIL · SAUVEGARDE</small></div></article>
+        <article class="action-card reveal"><span class="action-number">16</span><div><h2>Réparation Windows Update</h2><p>Arrête les services concernés, renomme les caches SoftwareDistribution et catroot2, puis relance les services.</p><small>RÉPARATION · SAUVEGARDE</small></div></article>
+        <article class="action-card reveal"><span class="action-number">17</span><div><h2>État des disques</h2><p>Affiche les disques physiques, leur état de santé, leur type et leur statut opérationnel.</p><small>DIAGNOSTIC · SANS MODIFICATION</small></div></article>
+        <article class="action-card reveal"><span class="action-number">18</span><div><h2>Rapport des programmes au démarrage</h2><p>Exporte les programmes lancés avec Windows dans un rapport local pour faciliter le tri et l’analyse.</p><small>RAPPORT · FICHIER LOCAL</small></div></article>
+        <article class="action-card reveal"><span class="action-number">19</span><div><h2>Maintenance hebdomadaire</h2><p>Planifie un rapport de santé hebdomadaire en mode simulation afin de surveiller le système sans le modifier.</p><small>PLANIFICATION · SANS MODIFICATION</small></div></article>
+        <article class="action-card reveal"><span class="action-number">20</span><div><h2>Restaurer une sauvegarde</h2><p>Réimporte une sauvegarde de registre et restaure le plan d’alimentation enregistré par une session précédente.</p><small>RESTAURATION · CONFIRMATION</small></div></article>
+        <article class="action-card reveal"><span class="action-number">21</span><div><h2>Mode simulation</h2><p>Permet de parcourir les actions et leurs confirmations sans appliquer de modification à Windows.</p><small>PRUDENCE · RECOMMANDÉ AVANT ESSAI</small></div></article>
+      </div>
+    </section>
+    <section class="download-band"><div><p class="eyebrow">TECH EXCHANGE / Windows Care</p><h2>Comprendre d’abord. Agir ensuite.</h2></div><div><p class="download-meta dark-meta">ZIP · 10,4 Ko · version 1.0.0 · 08/09/2026</p><a class="button primary download-button" href="SCRIPT_TOOL.zip" download data-download>Télécharger Windows Care <span>↓</span></a></div></section>
+  </main>
+  <footer><div class="footer-brand"><img src="assets/TE.png" alt="Logo TECH EXCHANGE"><div><strong>TECH EXCHANGE</strong><span>Solutions numériques</span></div></div><div class="footer-links"><a href="index.html">Accueil</a><a href="guide.html">Guide des actions</a><a href="SCRIPT_TOOL.zip" download>Télécharger</a></div><div class="footer-contact"><a href="tel:+24177171432">+241 77 17 14 32</a><a href="mailto:techexchange50@gmail.com">techexchange50@gmail.com</a></div><div class="footer-bottom"><span>© 2026 TECH EXCHANGE</span><span>Créé et développé par TECH EXCHANGE</span></div></footer>
+  <script src="motion.js"></script>
+</body>
+</html>

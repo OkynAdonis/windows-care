@@ -1,0 +1,6 @@
+data/
+package-check/
+*.log
+*.tmp
+Thumbs.db
+.DS_Store

@@ -1,0 +1,3 @@
+$highPerformance = powercfg -list | Select-String -Pattern 'High performance'; if ($highPerformance) { Write-Host '-- Power plan already exists.' } else { Write-Host '-- Enabling High Performance.'; $output = powercfg -duplicatescheme 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c 2>&1; if ($output -match 'Unable to create a new power scheme' -or $output -match 'The power scheme, subgroup or setting specified does not exist') { powercfg -RestoreDefaultSchemes } }
+
+$highPlanGUID = (powercfg -list | Select-String -Pattern 'High performance').Line.Split()[3]; Write-Host '-- Activating High Performance'; powercfg -setactive $highPlanGUID

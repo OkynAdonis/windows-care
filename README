@@ -1,0 +1,63 @@
+TECH EXCHANGE - Plateforme de solutions numeriques
+
+TECH EXCHANGE est une plateforme independante de developpement de solutions
+numeriques. Elle est creee et developpee par son fondateur, developpeur et
+concepteur des produits presentes.
+
+Produit actuel : Windows Care, outil Windows complet de diagnostic, maintenance
+et optimisation locale.
+
+Proprietaire : TECH EXCHANGE
+Contact : +241 77 17 14 32
+Email : techexchange50@gmail.com
+
+Lancer `SCRIPT_TOOL.bat`. L elevation administrateur est automatique.
+
+Fonctions :
+- etat du systeme, espace disque, reseau et plan actif ;
+- nettoyage des fichiers temporaires et de la corbeille ;
+- reparation DISM puis SFC ;
+- DNS Google ou Cloudflare avec detection des interfaces actives ;
+- reinitialisation Winsock, TCP/IP et cache DNS ;
+- reglages de confidentialite, telemetrie et Windows Search ;
+- plans Haute performance et Performances optimales ;
+- reparation du cache Windows Update ;
+- etat des disques et rapport des programmes au demarrage ;
+- sauvegardes automatiques et restauration des reglages ;
+- journalisation de chaque session ;
+- mode simulation sans modification.
+- wrapper `Invoke-NativeCommand` pour controler les codes retour, stdout et stderr ;
+- score de sante du PC et recommandations ;
+- rapport HTML partageable ;
+- assistant de reparation selon le probleme rencontre ;
+- profils Bureautique, Gaming, Portable et Confidentialite ;
+- planification dun rapport hebdomadaire.
+- sauvegarde du plan actif avant profil et restauration temporaire apres session ;
+- estimation du cout energetique relatif des plans ;
+- build reproductible avec `build-release.ps1`.
+
+Les sauvegardes et journaux sont places dans `data`. Chaque action sensible
+demande une confirmation. Un redemarrage peut etre necessaire apres une
+reparation reseau ou Windows Update.
+
+Lignes de commande :
+- `SCRIPT_TOOL.bat -DryRun` : ouvrir directement en mode simulation ;
+- `SCRIPT_TOOL.bat -Restore` : restaurer une sauvegarde existante.
+- `powershell -ExecutionPolicy Bypass -File build-release.ps1` : valider et
+	reconstruire la release, son hash et `site\version.json`.
+
+Les anciens fichiers sont conserves comme reference. Plusieurs sont des scripts
+PowerShell renommes en `.bat` et ne doivent pas etre lances directement.
+
+Site de telechargement :
+- le dossier `site` contient `index.html`, `styles.css` et `SCRIPT_TOOL.zip` ;
+- `site\guide.html` explique les 21 actions du menu avant telechargement ;
+- `site\motion.js` ajoute des apparitions progressives et respecte le mode
+	`prefers-reduced-motion` ;
+- le logo officiel est place dans `site\assets\TE.png` et reference par la page ;
+- les captures du menu et du site sont dans `site\assets\tool-menu.png` et
+	`site\assets\site-preview.png` ;
+- publier le contenu de `site` sur un hebergement statique comme GitHub Pages,
+	Netlify ou un hebergement web classique ;
+- apres toute modification de l outil, regenerer `site\SCRIPT_TOOL.zip` depuis
+	le dossier principal.

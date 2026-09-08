@@ -1,0 +1,3 @@
+$ultimatePerformance = powercfg -list | Select-String -Pattern 'Ultimate Performance'; if ($ultimatePerformance) { Write-Host '-- Power plan already exists.' } else { Write-Host '-- Enabling Ultimate Performance.'; $output = powercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61 2>&1; if ($output -match 'Unable to create a new power scheme' -or $output -match 'The power scheme, subgroup or setting specified does not exist') { powercfg -RestoreDefaultSchemes } }
+
+$ultimatePlanGUID = (powercfg -list | Select-String -Pattern 'Ultimate Performance').Line.Split()[3]; Write-Host '-- Activating Ultimate Performance'; powercfg -setactive $ultimatePlanGUID
