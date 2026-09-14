@@ -88,7 +88,7 @@ em { color:var(--teal); font-style:normal; }
 .shot { margin:0; }
 .shot img { background:var(--ink); border:1px solid var(--line); display:block; height:auto; width:100%; }
 .shot-menu img { aspect-ratio:1.65; object-fit:cover; object-position:top; }
-.shot-site img { aspect-ratio:1.65; object-fit:cover; object-position:top; }
+.shot-report img { aspect-ratio:1.31; object-fit:cover; object-position:top; }
 .shot figcaption { display:flex; flex-direction:column; gap:4px; padding-top:14px; }
 .shot figcaption b { font-size:13px; }
 .shot figcaption span { color:var(--muted); font-family:'DM Mono',monospace; font-size:10px; }
@@ -101,9 +101,12 @@ em { color:var(--teal); font-style:normal; }
 .details h2 { font-size:clamp(34px,5vw,64px); letter-spacing:-.06em; line-height:1.05; }
 .details code { background:#e1e8e4; font-size:11px; padding:4px 6px; }
 .details .small { border-top:1px solid var(--line); font-family:'DM Mono',monospace; font-size:11px; margin-top:38px; padding-top:20px; }
-.usage-shot { margin:0; }
-.usage-shot img { display:block; height:100%; max-height:300px; object-fit:cover; object-position:top; width:100%; }
-.usage-shot figcaption { color:var(--muted); font-family:'DM Mono',monospace; font-size:10px; line-height:1.5; padding-top:12px; }
+.start-steps { display:grid; gap:0; list-style:none; margin:0; padding:0; }
+.start-steps li { align-items:start; border-top:1px solid var(--line); display:grid; gap:18px; grid-template-columns:44px 1fr; padding:20px 0; }
+.start-steps li:last-child { border-bottom:1px solid var(--line); }
+.start-steps > li > span { color:var(--teal); font-family:'DM Mono',monospace; font-size:11px; padding-top:3px; }
+.start-steps strong { font-size:16px; }
+.start-steps p { margin:7px 0 0; }
 .faq { border-top:1px solid var(--line); }
 .faq-grid { display:grid; gap:0 45px; grid-template-columns:1fr 1fr; }
 .faq-grid div { border-bottom:1px solid var(--line); padding:22px 0; }
@@ -131,6 +134,11 @@ footer { border-top:1px solid var(--line); display:grid; font-family:'DM Mono',m
 .footer-brand img { height:42px; object-fit:cover; width:42px; }
 .footer-brand strong, .footer-brand span { display:block; }
 .footer-brand strong { font-family:Manrope,sans-serif; font-size:12px; letter-spacing:.08em; }
+.footer-brand span { color:var(--muted); margin-top:4px; }
+.footer-links, .footer-contact { display:flex; flex-direction:column; gap:10px; }
+.footer-links a, .footer-contact a { text-decoration:none; }
+.footer-links a:hover, .footer-contact a:hover { color:var(--teal); }
+.footer-contact { color:var(--muted); }
 .footer-qr { align-items:center; display:flex; gap:14px; min-width:0; }
 .footer-qr > a { background:#fff; border:1px solid var(--line); display:block; flex:0 0 88px; padding:5px; }
 .footer-qr img { display:block; height:auto; width:100%; }
@@ -138,13 +146,8 @@ footer { border-top:1px solid var(--line); display:grid; font-family:'DM Mono',m
 .footer-qr strong { font-family:Manrope,sans-serif; font-size:12px; }
 .footer-qr span { color:var(--muted); }
 .footer-qr div a { color:var(--teal); overflow-wrap:anywhere; text-underline-offset:3px; }
-.footer-brand span { color:var(--muted); margin-top:4px; }
-.footer-links, .footer-contact { display:flex; flex-direction:column; gap:10px; }
-.footer-links a, .footer-contact a { text-decoration:none; }
-.footer-links a:hover, .footer-contact a:hover { color:var(--teal); }
-.footer-contact { color:var(--muted); }
 .footer-bottom { border-top:1px solid var(--line); color:var(--muted); display:flex; grid-column:1 / -1; justify-content:space-between; padding-top:18px; }
-@media (max-width:760px) { .top-nav { gap:12px; } .top-nav { flex-wrap:wrap; justify-content:flex-end; } .hero { display:block; min-height:0; padding-top:50px; } .dashboard { margin:70px 12px 20px 0; } .feature-grid { grid-template-columns:1fr 1fr; } .feature-grid article:nth-child(2) { border-right:0; } .feature-grid article:nth-child(3), .feature-grid article:nth-child(4) { border-top:1px solid var(--line); } .feature-grid article:nth-child(3) { padding-left:0; } .section-intro, .shots-grid { display:block; } .section-intro p { margin-top:24px; } .shot + .shot { margin-top:38px; } .download-band, .details { align-items:flex-start; display:block; } .download-band .button { margin-top:28px; } .details { padding-top:65px; } .details-content { display:block; } .usage-shot { margin-top:38px; } .guide-hero { padding-top:55px; } .action-list { display:block; } .action-card { grid-template-columns:40px 1fr; } footer { display:block; line-height:2; } .footer-links, .footer-contact, .footer-qr { margin-top:24px; } .footer-bottom { gap:6px; margin-top:24px; } }
+@media (max-width:760px) { .top-nav { gap:12px; } .top-nav { flex-wrap:wrap; justify-content:flex-end; } .hero { display:block; min-height:0; padding-top:50px; } .dashboard { margin:70px 12px 20px 0; } .feature-grid { grid-template-columns:1fr 1fr; } .feature-grid article:nth-child(2) { border-right:0; } .feature-grid article:nth-child(3), .feature-grid article:nth-child(4) { border-top:1px solid var(--line); } .feature-grid article:nth-child(3) { padding-left:0; } .section-intro, .shots-grid { display:block; } .section-intro p { margin-top:24px; } .shot + .shot { margin-top:38px; } .download-band, .details { align-items:flex-start; display:block; } .download-band .button { margin-top:28px; } .details { padding-top:65px; } .details-content { display:block; } .guide-hero { padding-top:55px; } .action-list { display:block; } .action-card { grid-template-columns:40px 1fr; } footer { display:block; line-height:2; } .footer-links, .footer-contact, .footer-qr { margin-top:24px; } .footer-bottom { gap:6px; margin-top:24px; } }
 @media (max-width:470px) { .topbar { padding-top:20px; } .contact { font-size:10px; } .feature-grid { display:block; } .feature-grid article, .feature-grid article:not(:first-child) { border-bottom:1px solid var(--line); border-right:0; min-height:0; padding:22px 0; } .feature-grid h2 { margin:25px 0 9px; } }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior:auto; } *, *::before, *::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; scroll-behavior:auto !important; transition-duration:.01ms !important; } .reveal { opacity:1; transform:none; } }
 
