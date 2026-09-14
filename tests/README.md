@@ -10,7 +10,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-Site.ps1
 
 - `Test-Tool.ps1` : 29 tests du moteur ; modifications Windows simulées.
 - `Test-Launcher.ps1` : 4 scénarios réels du BAT avec moteur factice, sans élévation, dans un chemin contenant espaces, apostrophe et esperluette.
-- `Test-Site.ps1` : 35 assertions dans Chrome ou Edge sans interface, avec profil temporaire isolé. Utiliser `-BrowserPath` pour indiquer un autre emplacement du navigateur.
+- `Test-Site.ps1` : 51 assertions dans Chrome ou Edge sans interface, avec profil temporaire isolé. Utiliser `-BrowserPath` pour indiquer un autre emplacement du navigateur.
 
 Les tests web chargent le HTML, le CSS et le JavaScript actuels dans des pages isolées, embarquent les images locales et désactivent le téléchargement des polices Google. Ils couvrent la recherche, les téléchargements répétés, les liens natifs, la restauration de page, l'absence de JavaScript ou d'IntersectionObserver, le changement de préférence de mouvement et les débordements à 320, 360, 768 et 1280 pixels.
 

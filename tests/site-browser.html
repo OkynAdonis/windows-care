@@ -101,6 +101,10 @@
     for (const page of ['index', 'guide']) {
       for (const width of [320, 360, 768, 1280]) {
         ({ win, doc } = await load(page, width));
+        const qr = doc.querySelector('.footer-qr img');
+        const qrLink = qr && qr.closest('a');
+        assert(qr && qr.complete && qr.naturalWidth === 1000, `${page} QR image missing`);
+        assert(qrLink && qrLink.href === 'https://okynadonis.github.io/windows-care/', `${page} QR destination differs`);
         assert(doc.documentElement.scrollWidth <= width + 1, `${page} overflows at ${width}px: ${doc.documentElement.scrollWidth}px`);
         assert(win.__errors.length === 0, `${page} JS error: ${win.__errors.join(';')}`);
       }
