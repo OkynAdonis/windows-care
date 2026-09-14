@@ -19,6 +19,7 @@ Les preuves des deux essais Windows 11 sont detaillees dans `RESULTATS_RC2.md`. 
 - L assistant Windows Update n enchaine plus DISM et SFC lorsque la reparation des composants Update a echoue ou a ete refusee.
 - Le profil Confidentialite n applique plus Windows Search lorsque la premiere etape a echoue ou a ete refusee.
 - Le test navigateur restitue maintenant le journal Chrome en cas d arret du processus.
+- La construction utilise un ordre et un horodatage ZIP fixes : deux builds consecutifs produisent la meme empreinte SHA-256.
 
 ## Blocages avant version stable
 

@@ -26,7 +26,23 @@ try {
         Copy-Item -LiteralPath $source -Destination (Join-Path $payload $name)
     }
     $candidate = Join-Path $stage 'SCRIPT_TOOL.zip'
-    Compress-Archive -Path (Join-Path $payload '*') -DestinationPath $candidate -CompressionLevel Optimal
+    # Produire les memes octets a chaque build : ordre fixe et horodatage ZIP fixe.
+    # Compress-Archive reprend les dates des fichiers et changeait donc le SHA-256 en CI.
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archiveStream = [IO.File]::Open($candidate,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+    try {
+        $archive = [IO.Compression.ZipArchive]::new($archiveStream,[IO.Compression.ZipArchiveMode]::Create,$false)
+        try {
+            foreach ($name in $requiredFiles) {
+                $entry = $archive.CreateEntry($name,[IO.Compression.CompressionLevel]::Optimal)
+                $entry.LastWriteTime = [DateTimeOffset]::new(2000,1,1,0,0,0,[TimeSpan]::Zero)
+                $input = [IO.File]::OpenRead((Join-Path $payload $name))
+                $output = $entry.Open()
+                try { $input.CopyTo($output) } finally { $output.Dispose(); $input.Dispose() }
+            }
+        } finally { $archive.Dispose() }
+    } finally { $archiveStream.Dispose() }
     $info = Get-Item -LiteralPath $candidate
     $hash = (Get-FileHash -LiteralPath $candidate -Algorithm SHA256).Hash
     $manifest = [ordered]@{Product='Windows Care'; Platform='TECH EXCHANGE'; Version=$Version; ReleaseDate=(Get-Date).ToString('yyyy-MM-dd'); Archive='SCRIPT_TOOL.zip'; SizeBytes=$info.Length; SizeKB=[math]::Round($info.Length/1KB,1); SHA256=$hash; Files=$requiredFiles}
