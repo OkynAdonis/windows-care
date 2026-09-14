@@ -40,7 +40,11 @@ try {
     $process = Start-Process -FilePath $BrowserPath -ArgumentList $arguments -WindowStyle Hidden -Wait -PassThru -RedirectStandardOutput $output -RedirectStandardError $errors
     $dom = [IO.File]::ReadAllText($output)
     $result = [regex]::Match($dom,'<pre id="result">([^<]+)</pre>').Groups[1].Value
-    if ($process.ExitCode -ne 0 -or $result -notlike 'PASS *') { throw "Tests navigateur : $result. Code : $($process.ExitCode)" }
+    if ($process.ExitCode -ne 0 -or $result -notlike 'PASS *') {
+        $browserLog = if (Test-Path -LiteralPath $errors) { [IO.File]::ReadAllText($errors).Trim() } else { '' }
+        if ($browserLog.Length -gt 2000) { $browserLog = $browserLog.Substring($browserLog.Length - 2000) }
+        throw "Tests navigateur : $result. Code : $($process.ExitCode). Journal : $browserLog"
+    }
     Write-Host $result
 } finally {
     $resolved = [IO.Path]::GetFullPath($testRoot)

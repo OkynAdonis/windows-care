@@ -8,7 +8,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-Launcher.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File tests/Test-Site.ps1
 ```
 
-- `Test-Tool.ps1` : 29 tests du moteur ; modifications Windows simulées.
+- `Test-Tool.ps1` : 32 tests du moteur ; modifications Windows simulées.
 - `Test-Launcher.ps1` : 4 scénarios réels du BAT avec moteur factice, sans élévation, dans un chemin contenant espaces, apostrophe et esperluette.
 - `Test-Site.ps1` : 51 assertions dans Chrome ou Edge sans interface, avec profil temporaire isolé. Utiliser `-BrowserPath` pour indiquer un autre emplacement du navigateur.
 

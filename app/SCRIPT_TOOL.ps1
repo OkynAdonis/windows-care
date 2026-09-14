@@ -181,7 +181,7 @@ function Start-RepairAssistant {
     switch ($choice) {
         '1' { Show-HealthScore; Show-StartupReport; Clean-System }
         '2' { Show-Status; Reset-Network }
-        '3' { Repair-Update; Repair-Windows }
+        '3' { if (Repair-Update) { Repair-Windows | Out-Null } }
         '4' { Show-HealthScore; Clean-System }
         '5' { Set-Privacy; Set-SearchPrivacy }
         default { Write-Log 'Choix invalide.' 'WARN' }
@@ -195,7 +195,7 @@ function Set-Profile {
         'Office' { Set-Performance -Mode Balanced }
         'Gaming' { Set-Performance -Mode Ultimate }
         'Laptop' { Set-Performance -Mode Balanced }
-        'Privacy' { Set-Privacy; Set-SearchPrivacy }
+        'Privacy' { if (Set-Privacy) { Set-SearchPrivacy | Out-Null } }
     }
 }
 
@@ -274,8 +274,8 @@ function Reset-Network {
 
 # Desactive certaines taches et regles de telemetrie Windows.
 function Set-Privacy {
-    if (-not (Confirm-Action 'Appliquer les reglages de confidentialite et telemetrie')) { return }
-    Invoke-Action 'Configuration de la telemetrie Windows' {
+    if (-not (Confirm-Action 'Appliquer les reglages de confidentialite et telemetrie')) { return $false }
+    return (Invoke-Action 'Configuration de la telemetrie Windows' {
         New-StateBackup -Category Privacy | Out-Null
         foreach ($task in Get-PrivacyTasks) { Disable-ScheduledTask -TaskName $task.TaskName -TaskPath $task.TaskPath -ErrorAction Stop | Out-Null }
         foreach ($service in Get-Service -ErrorAction Stop | Where-Object Name -in @('DiagTrack','diagsvc','WerSvc','wercplsupport')) { Set-Service -Name $service.Name -StartupType Manual -ErrorAction Stop }
@@ -283,7 +283,7 @@ function Set-Privacy {
             if (-not (Test-Path -LiteralPath $item.Path)) { New-Item -Path $item.Path -Force -ErrorAction Stop | Out-Null }
             New-ItemProperty -LiteralPath $item.Path -Name $item.Name -PropertyType DWord -Value $item.Value -Force -ErrorAction Stop | Out-Null
         }
-    } | Out-Null
+    })
 }
 
 # Parcourt explicitement les dossiers sans suivre les jonctions ou liens.
@@ -304,14 +304,14 @@ function Remove-TemporaryEntry {
 }
 # Reduit les recherches web et les fonctions cloud de Windows Search.
 function Set-SearchPrivacy {
-    if (-not (Confirm-Action 'Desactiver la recherche web et les fonctions cloud de Search')) { return }
-    Invoke-Action 'Configuration de Windows Search' {
+    if (-not (Confirm-Action 'Desactiver la recherche web et les fonctions cloud de Search')) { return $false }
+    return (Invoke-Action 'Configuration de Windows Search' {
         New-StateBackup -Category Search | Out-Null
         foreach ($item in Get-SearchSettings) {
             if (-not (Test-Path -LiteralPath $item.Path)) { New-Item -Path $item.Path -Force -ErrorAction Stop | Out-Null }
             New-ItemProperty -LiteralPath $item.Path -Name $item.Name -PropertyType DWord -Value $item.Value -Force -ErrorAction Stop | Out-Null
         }
-    } | Out-Null
+    })
 }
 # Active un plan d alimentation standard ou performances optimales.
 function Set-Performance {
@@ -329,8 +329,12 @@ function Set-Performance {
         $plans = (Invoke-NativeCommand 'powercfg.exe' @('-list') 'Lecture plans alimentation').StdOut
         $ids = @([regex]::Matches($plans, '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}') | ForEach-Object Value)
         if ($guid -notin $ids) {
-            # Destination explicite : aucune dependance aux noms traduits ou a la sortie.
-            Invoke-NativeCommand 'powercfg.exe' @('-duplicatescheme',$guid,$guid) "Creation plan $Mode" | Out-Null
+            # Windows choisit le GUID de la copie. Le recuperer dans la sortie evite
+            # de reutiliser le GUID reserve du modele, refuse sur certaines editions.
+            $created = Invoke-NativeCommand 'powercfg.exe' @('-duplicatescheme',$guid) "Creation plan $Mode"
+            $createdGuid = [regex]::Match($created.StdOut + "`n" + $created.StdErr, '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}').Value
+            if (-not $createdGuid) { throw 'Le plan a ete cree mais son identifiant est introuvable.' }
+            $guid = $createdGuid
         }
         Save-TemporaryPowerPlan $previousPlan $Mode
         Invoke-NativeCommand 'powercfg.exe' @('-setactive',$guid) "Activation plan $Mode" | Out-Null
@@ -342,8 +346,8 @@ function Set-Performance {
 }
 # Reinitialise les composants principaux de Windows Update.
 function Repair-Update {
-    if (-not (Confirm-Action 'Reinitialiser les caches Windows Update (anciens caches conserves sur disque, sans restauration automatique)')) { return }
-    Invoke-Action 'Reparation de Windows Update' {
+    if (-not (Confirm-Action 'Reinitialiser les caches Windows Update (anciens caches conserves sur disque, sans restauration automatique)')) { return $false }
+    return (Invoke-Action 'Reparation de Windows Update' {
         $services = @(Get-Service -Name wuauserv,bits,cryptsvc -ErrorAction Stop | Select-Object Name,Status)
         $failures = [Collections.Generic.List[string]]::new()
         try {
@@ -365,7 +369,7 @@ function Repair-Update {
             }
         }
         if ($failures.Count) { throw ($failures -join '; ') }
-    } | Out-Null
+    })
 }
 # Fonctions de rapports courts pour les disques et les programmes au demarrage.
 function Show-DiskHealth { Invoke-Action 'Lecture de letat des disques' -ReadOnly { Get-PhysicalDisk | Select-Object FriendlyName,MediaType,HealthStatus,OperationalStatus,Size | Format-Table -AutoSize } | Out-Null }
@@ -433,13 +437,13 @@ do {
         '7' { Set-DnsServers @('8.8.8.8','8.8.4.4'); Pause-Tool }
         '8' { Set-DnsServers @('1.1.1.1','1.0.0.1'); Pause-Tool }
         '9' { Reset-Network; Pause-Tool }
-        '10' { Set-Privacy; Pause-Tool }
-        '11' { Set-SearchPrivacy; Pause-Tool }
+        '10' { Set-Privacy | Out-Null; Pause-Tool }
+        '11' { Set-SearchPrivacy | Out-Null; Pause-Tool }
         '12' { Set-Profile Office; Pause-Tool }
         '13' { Set-Profile Gaming; Pause-Tool }
         '14' { Set-Profile Laptop; Pause-Tool }
-        '15' { Set-Profile Privacy; Pause-Tool }
-        '16' { Repair-Update; Pause-Tool }
+        '15' { Set-Profile Privacy | Out-Null; Pause-Tool }
+        '16' { Repair-Update | Out-Null; Pause-Tool }
         '17' { Show-DiskHealth; Pause-Tool }
         '18' { Show-StartupReport; Pause-Tool }
         '19' { Register-MaintenanceTask; Pause-Tool }

@@ -68,7 +68,7 @@ Bas de page : QR code, URL complete, mention `Preversion publique`, contact `tec
 
 ## Visuels encore utiles a produire
 
-- Une capture propre du menu `rc.2` montrant les 23 choix et le statut de session standard ou administrateur. La capture actuelle est ancienne et n affiche que les choix 1 a 15.
+- Une capture propre du menu `rc.3` montrant les 23 choix et le statut de session standard ou administrateur. La capture actuelle est ancienne et n affiche que les choix 1 a 15.
 - Une capture de sauvegarde et restauration sur une VM jetable, apres validation reelle.
 - Une courte video verticale de 15 a 25 secondes : ouverture, mode simulation, score, rapport. Aucun changement systeme reel pendant l enregistrement.
 - QR code haute resolution produit : `site/assets/windows-care-qr.png`, 1000 × 1000 px, correction H et marge blanche. Le décodage automatisé confirme l URL officielle ; le test de lecture sur Android et iPhone reste à faire avant impression ou campagne.

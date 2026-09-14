@@ -93,6 +93,7 @@ try {
     Test 'Power selection is independent of language and list order' {
         $script:active='381b4222-f694-41f0-9685-ff5bb260df2e'
         $script:duplicated=$false
+        $script:created='11111111-2222-4333-8444-555555555555'
         function Confirm-Action { $true }
         function New-StateBackup { 'mock backup' }
         function Save-TemporaryPowerPlan { }
@@ -101,7 +102,11 @@ try {
             param($FilePath,$Arguments,$Title)
             switch ($Arguments[0]) {
                 '-list' { [pscustomobject]@{StdOut="GUID: 381b4222-f694-41f0-9685-ff5bb260df2e (Equilibre)`nGUID: 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c (Performances elevees)"} }
-                '-duplicatescheme' { $script:duplicated=$true; Assert ($Arguments[1] -eq $Arguments[2]) 'Destination GUID missing.' }
+                '-duplicatescheme' {
+                    $script:duplicated=$true
+                    Assert ($Arguments.Count -eq 2) 'A reserved destination GUID must not be forced.'
+                    [pscustomobject]@{StdOut="Power Scheme GUID: $($script:created) (Ultimate Performance)";StdErr=''}
+                }
                 '-setactive' { $script:active=$Arguments[1] }
                 default { throw 'Unexpected command.' }
             }
@@ -109,7 +114,33 @@ try {
         Set-Performance High
         Assert ($script:active -eq '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c' -and -not $script:duplicated) 'Wrong existing plan.'
         Set-Performance Ultimate
-        Assert ($script:active -eq 'e9a42b02-d5df-448d-aa00-03f14749eb61' -and $script:duplicated) 'Wrong new plan.'
+        Assert ($script:active -eq $script:created -and $script:duplicated) 'The duplicated plan GUID was not activated.'
+    }
+    Test 'Power selection rejects a duplicate without a returned GUID' {
+        $script:active='381b4222-f694-41f0-9685-ff5bb260df2e'
+        function Confirm-Action { $true }
+        function New-StateBackup { 'mock backup' }
+        function Save-TemporaryPowerPlan { throw 'Must not save an unusable selection.' }
+        function Get-ActivePowerPlanGuid { $script:active }
+        function Invoke-NativeCommand {
+            param($FilePath,$Arguments,$Title)
+            if($Arguments[0] -eq '-list'){return [pscustomobject]@{StdOut="GUID: $($script:active)"}}
+            if($Arguments[0] -eq '-duplicatescheme'){return [pscustomobject]@{StdOut='Plan created';StdErr=''}}
+            throw 'Activation must not be reached.'
+        }
+        $result=Set-Performance Ultimate
+        Assert (-not $result -and $script:active -eq '381b4222-f694-41f0-9685-ff5bb260df2e') 'Invalid duplicate was accepted.'
+    }
+    Test 'Guided repair stops after Windows Update failure' {
+        function Read-Host { param($Prompt); '3' }
+        function Repair-Update { $false }
+        function Repair-Windows { throw 'Second repair was reached.' }
+        Start-RepairAssistant
+    }
+    Test 'Privacy profile stops after telemetry failure' {
+        function Set-Privacy { $false }
+        function Set-SearchPrivacy { throw 'Search privacy was reached.' }
+        Set-Profile Privacy
     }
     Test 'Temporary power restore preserves original plan across profiles' {
         Save-TemporaryPowerPlan '381b4222-f694-41f0-9685-ff5bb260df2e' Balanced

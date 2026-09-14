@@ -49,7 +49,7 @@ Le choix 22 restaure manuellement le plan precedent ; il n y a pas de restaurati
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\Test-Tool.ps1
 ```
 
-Les tests chargent les fonctions sans demarrer le menu et simulent les modifications systeme. Les essais du lanceur et du navigateur sont decrits dans `tests/README.md`. La version `1.0.1-rc.2` doit encore etre validee sur des machines virtuelles Windows 10 et 11 avant diffusion comme version stable. Voir `docs/VALIDATION_WINDOWS.md` et `docs/RESULTATS_RC2.md`.
+Les tests chargent les fonctions sans demarrer le menu et simulent les modifications systeme. Les essais du lanceur et du navigateur sont decrits dans `tests/README.md`. La version `1.0.1-rc.3` doit encore etre validee sur des machines virtuelles Windows 10 et 11 avant diffusion comme version stable. Voir `docs/VALIDATION_WINDOWS.md` et `docs/RESULTATS_RC3.md`.
 
 ## Indicateur de sante
 
@@ -60,7 +60,7 @@ Cinq mesures : espace libre, nombre de commandes au demarrage, protection Defend
 Le script `build-release.ps1` execute les tests, verifie les fichiers requis, construit `release\SCRIPT_TOOL.zip`, calcule son SHA-256, copie l archive dans `site` et genere `site/version.json` ainsi que les informations de telechargement des pages HTML.
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\build-release.ps1 -Version 1.0.1-rc.2
+powershell -NoProfile -ExecutionPolicy Bypass -File .\build-release.ps1 -Version 1.0.1-rc.3
 ```
 
 ## Site
