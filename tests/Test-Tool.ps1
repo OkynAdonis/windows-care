@@ -51,6 +51,13 @@ try {
         Assert ($actual.Count -eq $expected.Count) 'Argument count differs.'
         for($i=0;$i -lt $expected.Count;$i++) { Assert ($actual[$i] -ceq $expected[$i]) "Argument $i differs." }
     }
+    Test 'Long native command exposes and completes progress' {
+        $script:progressCalls=@()
+        function Write-Progress { param($Id,$Activity,$Status,$PercentComplete,[switch]$Completed); $script:progressCalls += [pscustomobject]@{Activity=$Activity;Completed=$PSBoundParameters.ContainsKey('Completed')} }
+        Invoke-NativeCommand "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" @('-NoProfile','-Command','Start-Sleep -Milliseconds 700') 'Long operation' | Out-Null
+        Assert (@($script:progressCalls | Where-Object Activity -eq 'Long operation').Count -gt 0) 'Long command showed no progress.'
+        Assert (@($script:progressCalls | Where-Object Completed).Count -gt 0) 'Progress was not completed.'
+    }
     Test 'Simulation skips mutation and backup but runs diagnostics' {
         $script:Simulation = $true
         try {

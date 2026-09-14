@@ -56,10 +56,6 @@ function Invoke-NativeCommand {
         [int[]]$SuccessCodes = @(0)
     )
 
-    $tempRoot = Join-Path $env:TEMP "windows-care-$($script:Session)"
-    New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
-    $stdoutPath = Join-Path $tempRoot ([guid]::NewGuid().ToString() + '.out')
-    $stderrPath = Join-Path $tempRoot ([guid]::NewGuid().ToString() + '.err')
     $argumentString = ($Arguments | ForEach-Object {
         $argument = [string]$_
         if ($argument -eq '' -or $argument -match '[\s"]') {
@@ -68,10 +64,33 @@ function Invoke-NativeCommand {
         } else { $argument }
     }) -join ' '
 
+    $progressShown = $false
+    $process = $null
     try {
-        $process = Start-Process -FilePath $FilePath -ArgumentList $argumentString -Wait -PassThru -NoNewWindow -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
-        $stdout = [IO.File]::ReadAllText($stdoutPath)
-        $stderr = [IO.File]::ReadAllText($stderrPath)
+        $startInfo = [Diagnostics.ProcessStartInfo]::new()
+        $startInfo.FileName = $FilePath
+        $startInfo.Arguments = $argumentString
+        $startInfo.UseShellExecute = $false
+        $startInfo.CreateNoWindow = $true
+        $startInfo.RedirectStandardOutput = $true
+        $startInfo.RedirectStandardError = $true
+        $process = [Diagnostics.Process]::new()
+        $process.StartInfo = $startInfo
+        if (-not $process.Start()) { throw "Impossible de lancer $FilePath." }
+        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+        $stderrTask = $process.StandardError.ReadToEndAsync()
+        $clock = [Diagnostics.Stopwatch]::StartNew()
+        while (-not $process.HasExited) {
+            if ($clock.ElapsedMilliseconds -ge 300) {
+                $progressShown = $true
+                Write-Progress -Id 1 -Activity $Title -Status ("Operation Windows en cours - {0:n0} s" -f $clock.Elapsed.TotalSeconds) -PercentComplete -1
+            }
+            Start-Sleep -Milliseconds 200
+            $process.Refresh()
+        }
+        $process.WaitForExit()
+        $stdout = $stdoutTask.Result
+        $stderr = $stderrTask.Result
         $result = [pscustomobject]@{ Command = "$FilePath $argumentString"; ExitCode = $process.ExitCode; StdOut = $stdout; StdErr = $stderr; Success = ($process.ExitCode -in $SuccessCodes) }
         if ($stdout.Trim()) { Write-Log "$Title | stdout : $($stdout.Trim())" }
         if ($stderr.Trim()) { Write-Log "$Title | stderr : $($stderr.Trim())" $(if ($result.Success) { 'WARN' } else { 'ERROR' }) }
@@ -80,7 +99,8 @@ function Invoke-NativeCommand {
         if (-not $result.Success -and -not $AllowFailure) { throw "La commande a echoue avec le code $($result.ExitCode)." }
         return $result
     } finally {
-        Remove-Item -LiteralPath $stdoutPath, $stderrPath -Force -ErrorAction SilentlyContinue
+        if ($progressShown) { Write-Progress -Id 1 -Activity $Title -Completed }
+        if ($process) { $process.Dispose() }
     }
 }
 
@@ -93,6 +113,7 @@ function Invoke-Action {
     if (-not $ReadOnly -and -not (Test-Administrator)) { Write-Log 'Action refusee : relancer le BAT en administrateur. Les diagnostics restent disponibles.' 'ERROR'; return $false }
     try { & $Action | Out-Host; Write-Log "$Title : termine." 'OK'; $script:LastActionSucceeded=$true; return $true }
     catch { Write-Log "$Title : $($_.Exception.Message)" 'ERROR'; return $false }
+    finally { foreach ($id in 2..9) { Write-Progress -Id $id -Activity $Title -Completed } }
 }
 
 # Demande une confirmation avant toute modification sensible.
@@ -227,7 +248,10 @@ function Clean-System {
     if (-not (Confirm-Action 'Supprimer les fichiers temporaires et vider la corbeille (fichiers non recuperables par Windows Care)')) { return }
     Invoke-Action 'Nettoyage des fichiers temporaires' {
         $skipped = 0
-        foreach ($path in @($env:TEMP, "$env:WINDIR\Temp")) {
+        $paths = @($env:TEMP, "$env:WINDIR\Temp")
+        for ($pathIndex = 0; $pathIndex -lt $paths.Count; $pathIndex++) {
+            $path = $paths[$pathIndex]
+            Write-Progress -Id 2 -Activity 'Nettoyage des fichiers temporaires' -Status $path -PercentComplete ([int](($pathIndex / $paths.Count) * 90))
             $resolved = [IO.Path]::GetFullPath($path).TrimEnd('\')
             if ($resolved -eq [IO.Path]::GetPathRoot($resolved).TrimEnd('\') -or $resolved -eq $env:WINDIR -or $resolved -eq $env:USERPROFILE) { throw 'Dossier temporaire non sur.' }
             if (Test-Path -LiteralPath $resolved) {
@@ -236,7 +260,9 @@ function Clean-System {
                 }
             }
         }
+        Write-Progress -Id 2 -Activity 'Nettoyage des fichiers temporaires' -Status 'Corbeille Windows' -PercentComplete 90
         try { Clear-RecycleBin -Force -ErrorAction Stop } catch { $skipped++; Write-Log $_.Exception.Message 'WARN' }
+        Write-Progress -Id 2 -Activity 'Nettoyage des fichiers temporaires' -Completed
         if ($skipped) { throw "Nettoyage partiel : $skipped element(s) ignore(s), verrouille(s) ou inaccessible(s)." }
     } | Out-Null
 }
@@ -348,12 +374,15 @@ function Set-Performance {
 function Repair-Update {
     if (-not (Confirm-Action 'Reinitialiser les caches Windows Update (anciens caches conserves sur disque, sans restauration automatique)')) { return $false }
     return (Invoke-Action 'Reparation de Windows Update' {
+        Write-Progress -Id 3 -Activity 'Reparation de Windows Update' -Status 'Lecture des services' -PercentComplete 10
         $services = @(Get-Service -Name wuauserv,bits,cryptsvc -ErrorAction Stop | Select-Object Name,Status)
         $failures = [Collections.Generic.List[string]]::new()
         try {
+            Write-Progress -Id 3 -Activity 'Reparation de Windows Update' -Status 'Arret des services' -PercentComplete 30
             foreach ($service in $services) { Stop-Service -Name $service.Name -Force -ErrorAction Stop }
             $suffix = '.windows-care-' + [guid]::NewGuid().ToString('N')
             foreach ($path in @("$env:WINDIR\SoftwareDistribution", "$env:WINDIR\System32\catroot2")) {
+                Write-Progress -Id 3 -Activity 'Reparation de Windows Update' -Status "Conservation de $(Split-Path $path -Leaf)" -PercentComplete 60
                 if (Test-Path -LiteralPath $path) {
                     $resolved = (Resolve-Path -LiteralPath $path -ErrorAction Stop).ProviderPath
                     $windowsRoot = (Resolve-Path -LiteralPath $env:WINDIR -ErrorAction Stop).ProviderPath.TrimEnd('\') + '\'
@@ -364,10 +393,12 @@ function Repair-Update {
             }
         } catch { $failures.Add($_.Exception.Message) }
         finally {
+            Write-Progress -Id 3 -Activity 'Reparation de Windows Update' -Status 'Redemarrage des services' -PercentComplete 85
             foreach ($service in $services | Where-Object Status -eq 'Running') {
                 try { Start-Service -Name $service.Name -ErrorAction Stop } catch { $failures.Add($_.Exception.Message) }
             }
         }
+        Write-Progress -Id 3 -Activity 'Reparation de Windows Update' -Completed
         if ($failures.Count) { throw ($failures -join '; ') }
     })
 }

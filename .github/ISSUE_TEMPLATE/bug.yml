@@ -9,7 +9,7 @@ body:
     id: version
     attributes:
       label: Version de Windows Care
-      placeholder: "Exemple : 1.0.1-rc.4"
+      placeholder: "Exemple : 1.0.1-rc.5"
     validations:
       required: true
   - type: input

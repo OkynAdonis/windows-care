@@ -1,5 +1,5 @@
 ﻿[CmdletBinding()]
-param([string]$Version = '1.0.1-rc.4')
+param([string]$Version = '1.0.1-rc.5')
 $ErrorActionPreference = 'Stop'
 $projectRoot = $PSScriptRoot
 $site = Join-Path $projectRoot 'site'

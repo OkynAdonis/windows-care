@@ -57,6 +57,7 @@
     button.addEventListener('click', e => e.preventDefault());
     button.dispatchEvent(new win.MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
     await wait(100);
+    assert(button.classList.contains('download-started') && win.getComputedStyle(button, '::after').content !== 'none', 'Download loader missing');
     button.dispatchEvent(new win.MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
     await wait(1900);
     assert(button.textContent === label && !button.classList.contains('download-started'), 'Repeated downloads did not reset');

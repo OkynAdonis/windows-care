@@ -1,12 +1,12 @@
 {
     "Product":  "Windows Care",
     "Platform":  "TECH EXCHANGE",
-    "Version":  "1.0.1-rc.4",
+    "Version":  "1.0.1-rc.5",
     "ReleaseDate":  "2026-09-15",
     "Archive":  "SCRIPT_TOOL.zip",
-    "SizeBytes":  68054,
-    "SizeKB":  66.5,
-    "SHA256":  "3CDCD995783038024A20DE19B2B407CADEA3B6C1EE7B3F4685B17A7D30CD03E3",
+    "SizeBytes":  70785,
+    "SizeKB":  69.1,
+    "SHA256":  "7C762E4807D366F957D9D9AF4A16EB9956F2FEF94AD86B19C61290498EAE5CC0",
     "Files":  [
                   "SCRIPT_TOOL.bat",
                   "SCRIPT_TOOL.ps1",

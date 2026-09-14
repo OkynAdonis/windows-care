@@ -113,9 +113,11 @@ function New-SupportBundle {
     Invoke-Action 'Creation du dossier de support Windows Care' -ReadOnly {
         $folder = Join-Path $script:DataRoot "support-$($script:Session)"
         New-Item -ItemType Directory -Path $folder -ErrorAction Stop | Out-Null
+        Write-Progress -Id 4 -Activity 'Creation du dossier de support' -Status 'Informations Windows et materiel' -PercentComplete 10
         $os = Get-SafeDiagnosticValue 'Windows' { Get-CimInstance Win32_OperatingSystem -ErrorAction Stop | Select-Object Caption,Version,BuildNumber,OSArchitecture,LastBootUpTime }
         $computer = Get-SafeDiagnosticValue 'Ordinateur' { Get-CimInstance Win32_ComputerSystem -ErrorAction Stop | Select-Object Manufacturer,Model,@{N='MemoryGB';E={[math]::Round($_.TotalPhysicalMemory/1GB,1)}} }
         $disks = Get-SafeDiagnosticValue 'Disques' { @(Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=3' -ErrorAction Stop | Select-Object DeviceID,@{N='SizeGB';E={[math]::Round($_.Size/1GB,1)}},@{N='FreeGB';E={[math]::Round($_.FreeSpace/1GB,1)}}) }
+        Write-Progress -Id 4 -Activity 'Creation du dossier de support' -Status 'Sante, mises a jour et pilotes' -PercentComplete 40
         $payload = [ordered]@{
             CreatedAt = (Get-Date).ToString('o')
             Computer = $computer
@@ -125,12 +127,15 @@ function New-SupportBundle {
             WindowsUpdate = Get-SafeDiagnosticValue 'Windows Update' { Get-WindowsUpdateDiagnostic }
             Drivers = Get-SafeDiagnosticValue 'Pilotes' { @(Get-DriverIssues) }
         }
+        Write-Progress -Id 4 -Activity 'Creation du dossier de support' -Status 'Ecriture du diagnostic' -PercentComplete 70
         [IO.File]::WriteAllText((Join-Path $folder 'diagnostic.json'),($payload | ConvertTo-Json -Depth 8),[Text.UTF8Encoding]::new($false))
         Get-CimInstance Win32_StartupCommand -ErrorAction SilentlyContinue | Select-Object Name,Location,User | Export-Csv (Join-Path $folder 'startup.csv') -NoTypeInformation -Encoding UTF8
+        Write-Progress -Id 4 -Activity 'Creation du dossier de support' -Status 'Journaux recents et avertissement' -PercentComplete 90
         $recentLogs = @(Get-ChildItem -LiteralPath $script:LogRoot -Filter '*.log' -File | Sort-Object LastWriteTime -Descending | Select-Object -First 3)
         foreach ($log in $recentLogs) { Copy-Item -LiteralPath $log.FullName -Destination (Join-Path $folder $log.Name) }
         $notice = "Ce dossier peut contenir le modele du PC, des noms de peripheriques, des programmes au demarrage et des chemins locaux. Relisez son contenu avant de le partager."
         [IO.File]::WriteAllText((Join-Path $folder 'A_LIRE.txt'),$notice,[Text.UTF8Encoding]::new($false))
+        Write-Progress -Id 4 -Activity 'Creation du dossier de support' -Completed
         Write-Log "Dossier de support : $folder" 'OK'
     } | Out-Null
 }

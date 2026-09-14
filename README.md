@@ -49,7 +49,7 @@ Le choix 22 restaure manuellement le plan precedent ; il n y a pas de restaurati
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\Test-Tool.ps1
 ```
 
-Les tests chargent les fonctions sans demarrer le menu et simulent les modifications systeme. Les essais du lanceur et du navigateur sont decrits dans `tests/README.md`. La version `1.0.1-rc.4` doit encore etre validee sur des machines virtuelles Windows 10 et 11 avant diffusion comme version stable. Voir `docs/VALIDATION_WINDOWS.md` et `docs/RESULTATS_RC4.md`.
+Les tests chargent les fonctions sans demarrer le menu et simulent les modifications systeme. Les essais du lanceur et du navigateur sont decrits dans `tests/README.md`. La version `1.0.1-rc.5` doit encore etre validee sur des machines virtuelles Windows 10 et 11 avant diffusion comme version stable. Voir `docs/VALIDATION_WINDOWS.md` et `docs/RESULTATS_RC5.md`.
 
 ## Indicateur de sante
 
@@ -59,6 +59,8 @@ Cinq mesures : espace libre, nombre de commandes au demarrage, protection Defend
 
 Les choix 24 a 29 ajoutent un diagnostic reseau par couches, l etat de Windows Update et des redemarrages en attente, les pilotes avec code erreur, le rapport batterie officiel de Windows, la creation manuelle d un point de restauration et un dossier de support local. Le dossier de support contient un avertissement : il faut relire les noms de peripheriques, programmes et chemins locaux avant de le partager.
 
+Les commandes Windows qui durent affichent un indicateur avec le temps ecoule. Le nettoyage, la reparation Windows Update et la creation du dossier de support affichent leur etape courante et ferment toujours leur progression, y compris en cas d erreur.
+
 Les sources et decisions de la comparaison avec WinUtil, WinScript et les retours Reddit sont consignees dans `docs/RECHERCHE_OUTILS.md`.
 
 ## Release
@@ -66,7 +68,7 @@ Les sources et decisions de la comparaison avec WinUtil, WinScript et les retour
 Le script `build-release.ps1` execute les tests, verifie les fichiers requis, construit `release\SCRIPT_TOOL.zip`, calcule son SHA-256, copie l archive dans `site` et genere `site/version.json` ainsi que les informations de telechargement des pages HTML.
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\build-release.ps1 -Version 1.0.1-rc.4
+powershell -NoProfile -ExecutionPolicy Bypass -File .\build-release.ps1 -Version 1.0.1-rc.5
 ```
 
 ## Site

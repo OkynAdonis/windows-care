@@ -54,6 +54,7 @@ em { color:var(--teal); font-style:normal; }
 .dash-line i { animation: signal 1.8s ease-in-out infinite; }
 .console-cursor { animation:cursor-blink 1s steps(1) infinite; background:var(--lime); display:inline-block; height:13px; margin-left:7px; vertical-align:-2px; width:6px; }
 .download-button.download-started { background:var(--ink); box-shadow:0 0 0 4px #c9e85b66; }
+.download-button.download-started::after { animation:loader-spin .8s linear infinite; border:2px solid #ffffff66; border-radius:50%; border-top-color:var(--lime); content:''; flex:0 0 15px; height:15px; width:15px; }
 .js-motion .reveal { opacity:0; transform:translateY(24px); transition:opacity 700ms ease var(--reveal-delay, 0ms), transform 700ms ease var(--reveal-delay, 0ms); }
 .js-motion .reveal.is-visible { opacity:1; transform:none; }
 .button, .feature-grid article, .shot, .faq-grid div { transition:transform 320ms ease, border-color 320ms ease, background-color 320ms ease, color 320ms ease; }
@@ -71,6 +72,7 @@ em { color:var(--teal); font-style:normal; }
 @keyframes signal { 0%,100% { box-shadow:0 0 0 0 #c9e85b66; } 50% { box-shadow:0 0 0 7px #c9e85b00; } }
 @keyframes cursor-blink { 0%,45% { opacity:1; } 46%,100% { opacity:0; } }
 @keyframes score-fill { from { opacity:.4; } to { opacity:1; } }
+@keyframes loader-spin { to { transform:rotate(360deg); } }
 .section { margin:auto; max-width:1240px; padding:90px 5vw; }
 .section-label { color:var(--teal); font-size:10px; letter-spacing:.15em; margin-bottom:40px; text-transform:uppercase; }
 .feature-grid { border-top:1px solid var(--line); display:grid; grid-template-columns:repeat(4,1fr); }
@@ -173,4 +175,5 @@ footer { border-top:1px solid var(--line); display:grid; font-family:'DM Mono',m
   .js-motion .reveal { opacity:1; transform:none; transition:none; }
   .button:hover, .feature-grid article:hover, .shot:hover { transform:none; }
   .console-cursor, .dash-line i { animation:none; }
+  .download-button.download-started::after { animation:none; border-color:var(--lime); }
 }
