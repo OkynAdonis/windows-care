@@ -14,6 +14,9 @@ a:focus-visible, .button:focus-visible { outline:3px solid var(--ink); outline-o
 .brand { align-items:center; display:flex; font-size:13px; font-weight:800; gap:10px; letter-spacing:.08em; text-decoration:none; }
 .app-brand { letter-spacing:.02em; }
 .brand img { height:34px; object-fit:cover; width:34px; }
+.app-brand { max-width:100%; }
+.app-brand .windows-care-logo { display:block; width:300px; max-width:100%; height:auto; object-fit:contain; }
+@media (max-width:470px) { .app-brand .windows-care-logo { width:240px; } }
 .contact { border-bottom:1px solid var(--ink); font-size:12px; text-decoration:none; }
 .top-nav { align-items:center; display:flex; gap:26px; }
 .top-nav a { font-size:12px; text-decoration:none; }
