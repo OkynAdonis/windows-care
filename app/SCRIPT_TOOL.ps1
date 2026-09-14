@@ -4,18 +4,31 @@
 # Ce fichier centralise les fonctions de diagnostic, maintenance et restauration.
 
 [CmdletBinding()]
-param([switch]$DryRun, [switch]$Restore, [switch]$ReportOnly, [switch]$RemoveMaintenanceTask)
+param([switch]$DryRun, [switch]$Restore, [switch]$ReportOnly, [switch]$RemoveMaintenanceTask, [string]$DataDirectory)
 
 $ErrorActionPreference = 'Stop'
 if (([int][bool]$Restore + [int][bool]$ReportOnly + [int][bool]$RemoveMaintenanceTask) -gt 1) { throw 'Choisir un seul mode : Restore, ReportOnly ou RemoveMaintenanceTask.' }
 $script:Root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$script:DataRoot = Join-Path $script:Root 'data'
+$script:DataRoot = if ($DataDirectory) { [IO.Path]::GetFullPath($DataDirectory) } else { Join-Path $script:Root 'data' }
 $script:BackupRoot = Join-Path $script:DataRoot 'backups'
 $script:LogRoot = Join-Path $script:DataRoot 'logs'
-$script:Session = Get-Date -Format 'yyyyMMdd-HHmmss-fff'
+$script:Session = (Get-Date -Format 'yyyyMMdd-HHmmss-fff') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8)
 $script:LogFile = Join-Path $script:LogRoot "session-$($script:Session).log"
 $script:Simulation = [bool]$DryRun
-New-Item -ItemType Directory -Force -Path $script:BackupRoot, $script:LogRoot | Out-Null
+$script:LastActionSucceeded = $true
+try {
+    New-Item -ItemType Directory -Force -Path $script:BackupRoot, $script:LogRoot -ErrorAction Stop | Out-Null
+    [IO.File]::WriteAllText($script:LogFile,'')
+} catch {
+    if ($DataDirectory -or -not $env:LOCALAPPDATA) { throw "Dossier de donnees inaccessible : $script:DataRoot. $($_.Exception.Message)" }
+    $script:DataRoot = Join-Path $env:LOCALAPPDATA 'WindowsCare\data'
+    $script:BackupRoot = Join-Path $script:DataRoot 'backups'
+    $script:LogRoot = Join-Path $script:DataRoot 'logs'
+    $script:LogFile = Join-Path $script:LogRoot "session-$($script:Session).log"
+    New-Item -ItemType Directory -Force -Path $script:BackupRoot, $script:LogRoot -ErrorAction Stop | Out-Null
+    [IO.File]::WriteAllText($script:LogFile,'')
+    Write-Host "Dossier du programme non inscriptible ; donnees dans $script:DataRoot" -ForegroundColor Yellow
+}
 
 # Ecrit simultanement dans le journal de session et dans la console.
 function Write-Log {
@@ -75,8 +88,10 @@ function Invoke-NativeCommand {
 function Invoke-Action {
     param([string]$Title, [scriptblock]$Action, [switch]$ReadOnly)
     Write-Log $Title
-    if ($script:Simulation -and -not $ReadOnly) { Write-Log 'Simulation : aucune modification appliquee.' 'WARN'; return $true }
-    try { & $Action | Out-Host; Write-Log "$Title : termine." 'OK'; return $true }
+    $script:LastActionSucceeded = $false
+    if ($script:Simulation -and -not $ReadOnly) { Write-Log 'Simulation : aucune modification appliquee.' 'WARN'; $script:LastActionSucceeded=$true; return $true }
+    if (-not $ReadOnly -and -not (Test-Administrator)) { Write-Log 'Action refusee : relancer le BAT en administrateur. Les diagnostics restent disponibles.' 'ERROR'; return $false }
+    try { & $Action | Out-Host; Write-Log "$Title : termine." 'OK'; $script:LastActionSucceeded=$true; return $true }
     catch { Write-Log "$Title : $($_.Exception.Message)" 'ERROR'; return $false }
 }
 
@@ -140,6 +155,7 @@ function Restore-TemporaryPowerPlan {
     $path = Join-Path $script:DataRoot 'temporary-power-plan.json'
     if (-not (Test-Path $path)) { Write-Log 'Aucun plan temporaire a restaurer.' 'WARN'; return }
     $saved = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+    if ([string]$saved.Guid -notmatch '^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$') { throw 'Plan temporaire invalide : fichier conserve pour verification.' }
     if (-not (Confirm-Action "Restaurer le plan precedent $($saved.Guid)")) { return }
     Invoke-Action 'Restauration du plan precedent' {
         New-StateBackup -Category Power | Out-Null
@@ -156,46 +172,6 @@ function Show-PowerEnergyCosts {
         Write-Host ("{0,-24} {1,-10} {2}" -f $estimate.Label, $estimate.Cost, $estimate.Detail)
     }
     Write-Host 'Le cout reel depend du materiel, de la charge et du tarif electrique.'
-}
-
-# Calcule un score simple a partir de mesures disponibles sans modifier Windows.
-function Get-HealthScore {
-    $checks = [ordered]@{}
-    $os = Get-CimInstance Win32_OperatingSystem
-    $systemDrive = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='$($env:SystemDrive)'"
-    $freePercent = if ($systemDrive.Size) { [math]::Round(($systemDrive.FreeSpace / $systemDrive.Size) * 100) } else { 0 }
-    $checks['Windows'] = if ($os.LastBootUpTime) { 100 } else { 50 }
-    $checks['Stockage'] = if ($freePercent -ge 20) { 100 } elseif ($freePercent -ge 10) { 70 } else { 35 }
-    $checks['Demarrage'] = if (@(Get-CimInstance Win32_StartupCommand).Count -le 8) { 100 } else { 65 }
-    $checks['Defender'] = if ((Get-MpComputerStatus -ErrorAction SilentlyContinue).AntivirusEnabled) { 100 } else { 35 }
-    $checks['Pare-feu'] = if (@(Get-NetFirewallProfile -ErrorAction SilentlyContinue | Where-Object Enabled -eq $true).Count -ge 1) { 100 } else { 30 }
-    $checks['Reseau'] = if (@(Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object Status -eq 'Up').Count -ge 1) { 100 } else { 40 }
-    $score = [math]::Round(($checks.Values | Measure-Object -Average).Average)
-    [pscustomobject]@{ Score = $score; Checks = $checks; FreePercent = $freePercent }
-}
-
-# Affiche le score et les recommandations associees.
-function Show-HealthScore {
-    $health = Get-HealthScore
-    Write-Host "`nSCORE DE SANTE : $($health.Score)/100" -ForegroundColor $(if ($health.Score -ge 80) { 'Green' } elseif ($health.Score -ge 60) { 'Yellow' } else { 'Red' })
-    foreach ($item in $health.Checks.GetEnumerator()) { Write-Host ("{0,-16} {1,3}/100" -f $item.Key, $item.Value) }
-    if ($health.FreePercent -lt 10) { Write-Log 'Recommandation : liberer de lespace disque.' 'WARN' }
-    if ($health.Checks['Demarrage'] -lt 80) { Write-Log 'Recommandation : examiner les programmes au demarrage.' 'WARN' }
-    if ($health.Checks['Defender'] -lt 80) { Write-Log 'Recommandation : verifier Microsoft Defender.' 'WARN' }
-}
-
-# Genere un rapport HTML partageable avec les mesures et les recommandations.
-function New-HealthReport {
-    $health = Get-HealthScore
-    $rows = ($health.Checks.GetEnumerator() | ForEach-Object { "<tr><td>$($_.Key)</td><td>$($_.Value)/100</td></tr>" }) -join "`n"
-    $report = Join-Path $script:DataRoot "rapport-$($script:Session).html"
-    $html = @"
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Rapport TECH EXCHANGE</title>
-<style>body{font-family:Segoe UI,Arial;background:#eef2f5;color:#17212b;max-width:850px;margin:40px auto;padding:24px}main{background:white;padding:28px;border-radius:10px;box-shadow:0 4px 18px #0001}h1{color:#0b6670}table{width:100%;border-collapse:collapse}td{padding:10px;border-bottom:1px solid #dde4e8}footer{margin-top:28px;color:#64727c}</style></head>
-<body><main><h1>Rapport de sante Windows</h1><p><b>TECH EXCHANGE</b> | $([datetime]::Now.ToString('dd/MM/yyyy HH:mm'))</p><h2>Score : $($health.Score)/100</h2><table><tr><th align="left">Categorie</th><th align="left">Resultat</th></tr>$rows</table><footer>Contact : +241 77 17 14 32 | techexchange50@gmail.com</footer></main></body></html>
-"@
-    Set-Content -LiteralPath $report -Value $html -Encoding UTF8
-    Write-Log "Rapport HTML cree : $report" 'OK'
 }
 
 # Execute un parcours de diagnostic adapte au probleme choisi par l utilisateur.
@@ -225,15 +201,16 @@ function Set-Profile {
 
 # Cree une tache hebdomadaire de diagnostic, sans appliquer de modification.
 function Register-MaintenanceTask {
+    param([string]$TaskName = 'TECH EXCHANGE - Rapport sante')
     if (-not (Confirm-Action 'Planifier un rapport de sante hebdomadaire')) { return }
     $scriptPath = Join-Path $script:Root 'SCRIPT_TOOL.ps1'
     Invoke-Action 'Planification de la maintenance hebdomadaire' {
         if (-not (Test-Path -LiteralPath $scriptPath)) { throw 'Script de rapport introuvable.' }
-        $action = New-ScheduledTaskAction -Execute "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -Argument "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$scriptPath`" -ReportOnly" -WorkingDirectory $script:Root
+        $action = New-ScheduledTaskAction -Execute "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -Argument "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$scriptPath`" -DataDirectory `"$script:DataRoot`" -ReportOnly" -WorkingDirectory $script:Root
         $trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At '10:00'
         $principal = New-ScheduledTaskPrincipal -UserId ([Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Highest
-        $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 15)
-        Register-ScheduledTask -TaskName 'TECH EXCHANGE - Rapport sante' -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force -ErrorAction Stop | Out-Null
+        $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 15)
+        Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force -ErrorAction Stop | Out-Null
         Write-Log 'Rapport le dimanche a 10h, compte connecte. Replanifier si le dossier est deplace.'
     } | Out-Null
 }
@@ -435,10 +412,15 @@ function Show-Menu {
 }
 
 . (Join-Path $script:Root 'State.ps1')
+. (Join-Path $script:Root 'Health.ps1')
 if ($ReportOnly) { try { New-HealthReport; exit 0 } catch { Write-Log $_.Exception.Message 'ERROR'; exit 1 } }
-if (-not (Test-Administrator)) { Write-Log 'L outil doit etre lance en tant qu administrateur.' 'ERROR'; exit 1 }
-if ($RemoveMaintenanceTask) { Unregister-MaintenanceTask; exit }
-if ($Restore) { Restore-State; exit }
+if ($RemoveMaintenanceTask -or $Restore) {
+    try {
+        if ($RemoveMaintenanceTask) { Unregister-MaintenanceTask } else { Restore-State }
+        exit ([int](-not $script:LastActionSucceeded))
+    } catch { Write-Log $_.Exception.Message 'ERROR'; exit 1 }
+}
+if (-not (Test-Administrator)) { Write-Log 'Session standard : diagnostics disponibles, modifications systeme reservees a un administrateur.' 'WARN' }
 do {
     Show-Menu; $choice = Read-Host 'Votre choix'
     try { switch ($choice) {

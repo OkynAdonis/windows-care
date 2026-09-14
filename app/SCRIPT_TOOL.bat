@@ -6,7 +6,10 @@ set "WC_FLAGS="
 set "WC_REPORT="
 :parse
 if "%~1"=="" goto launch
-if /i "%~1"=="-DryRun" goto accept
+if /i "%~1"=="-DryRun" (
+    set "WC_READONLY=1"
+    goto accept
+)
 if /i "%~1"=="-Restore" goto accept
 if /i "%~1"=="-RemoveMaintenanceTask" goto accept
 if /i "%~1"=="-ReportOnly" (
@@ -21,6 +24,7 @@ shift
 goto parse
 :launch
 if defined WC_REPORT goto direct
+if defined WC_READONLY goto direct
 fltmc >nul 2>&1
 if not errorlevel 1 goto direct
 powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "try { $q=[char]34; $a='-NoProfile -ExecutionPolicy Bypass -File '+$q+$env:WC_ENGINE+$q+$env:WC_FLAGS; $p=Start-Process -FilePath ($PSHOME+'\powershell.exe') -ArgumentList $a -Verb RunAs -Wait -PassThru; exit $p.ExitCode } catch { Write-Host ('Lancement annule ou impossible : '+$_.Exception.Message); exit 1 }"

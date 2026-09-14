@@ -1,8 +1,8 @@
 # Validation avant version stable
 
-Version candidate : 1.0.1-rc.1. Les tests automatises utilisent des commandes simulees pour les modifications Windows ; ils ne remplacent pas cette recette.
+Version candidate : 1.0.1-rc.2. Les tests automatises utilisent des commandes simulees pour les modifications Windows ; ils ne remplacent pas cette recette. Les essais reels deja effectues sont consignes dans `RESULTATS_RC2.md`.
 
-Executer sur des machines virtuelles Windows 10 et 11 avec instantane initial, dans une session francaise puis anglaise lorsque possible. Aucun de ces essais systeme n a ete execute pendant la stabilisation locale.
+Executer les actions de modification sur des machines virtuelles Windows 10 et 11 avec instantane initial, dans une session francaise puis anglaise lorsque possible. Les diagnostics et le rapport planifie ont ete verifies sur le poste Windows 11 ; les actions de modification et leur restauration restent a verifier en VM.
 
 | Parcours | Resultat attendu |
 |---|---|

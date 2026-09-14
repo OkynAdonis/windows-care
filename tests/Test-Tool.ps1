@@ -17,7 +17,7 @@ $script:passed = 0
 function Assert($condition, $message) { if (-not $condition) { throw $message } }
 function Test($name, [scriptblock]$body) { & $body; $script:passed++; Write-Host "PASS $name" -ForegroundColor Green }
 try {
-    foreach ($file in @($engine,$support,(Join-Path $projectRoot 'build-release.ps1'))) {
+    foreach ($file in @($engine,$support,(Join-Path $projectRoot 'app\Health.ps1'),(Join-Path $projectRoot 'build-release.ps1'))) {
         $errors = $null
         $ast = [Management.Automation.Language.Parser]::ParseFile($file,[ref]$null,[ref]$errors)
         Assert (@($errors).Count -eq 0) "Syntaxe invalide : $file : $errors"
@@ -27,6 +27,7 @@ try {
             }
         }
     }
+    function Test-Administrator { $true }
     Test 'Native empty output and successful exit' {
         $result = Invoke-NativeCommand "$env:WINDIR\System32\cmd.exe" @('/d','/c','exit 0')
         Assert ($result.Success -and $result.StdOut -eq '' -and $result.StdErr -eq '') 'Empty output must not throw.'
@@ -143,7 +144,7 @@ try {
         $fixture=Join-Path $suiteRoot 'registry-restore'
         New-Item -ItemType Directory -Path $fixture | Out-Null
         $path='HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search'
-        [pscustomobject]@{SchemaVersion=2;Complete=$true;Category='Search';Computer=$env:COMPUTERNAME;UserSid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;Registry=@([pscustomobject]@{Path=$path;Name='DisableWebSearch';Exists=$false},[pscustomobject]@{Path=$path;Name='AllowCloudSearch';Exists=$true;Value=1;Kind='DWord'})} | Export-Clixml (Join-Path $fixture 'state.xml')
+        [pscustomobject]@{SchemaVersion=2;Complete=$true;Category='Search';Computer=$env:COMPUTERNAME;UserSid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;Registry=@(Get-SearchSettings | ForEach-Object { [pscustomobject]@{Path=$_.Path;Name=$_.Name;Exists=($_.Name -eq 'AllowCloudSearch');Value=1;Kind='DWord'} })} | Export-Clixml (Join-Path $fixture 'state.xml')
         function Select-Backup { [pscustomobject]@{FullName=$fixture;Name='fixture'} }
         function Confirm-Action { $true }
         function New-StateBackup { }
@@ -175,7 +176,7 @@ try {
         function New-ScheduledTaskAction { param($Execute,$Argument,$WorkingDirectory); $script:taskArguments=$Argument; [pscustomobject]@{} }
         function New-ScheduledTaskTrigger { param([switch]$Weekly,$DaysOfWeek,$At); [pscustomobject]@{} }
         function New-ScheduledTaskPrincipal { param($UserId,$LogonType,$RunLevel); Assert ($LogonType -eq 'Interactive' -and $RunLevel -eq 'Highest') 'Wrong task principal.'; [pscustomobject]@{} }
-        function New-ScheduledTaskSettingsSet { param([switch]$StartWhenAvailable,$ExecutionTimeLimit); [pscustomobject]@{} }
+        function New-ScheduledTaskSettingsSet { param([switch]$StartWhenAvailable,[switch]$AllowStartIfOnBatteries,[switch]$DontStopIfGoingOnBatteries,$ExecutionTimeLimit); Assert ($AllowStartIfOnBatteries -and $DontStopIfGoingOnBatteries) 'Battery report blocked.'; [pscustomobject]@{} }
         function Register-ScheduledTask { param($TaskName,$Action,$Trigger,$Principal,$Settings,[switch]$Force,$ErrorAction); $script:taskRegistered=$true }
         Register-MaintenanceTask
         Assert ($script:taskRegistered -and $script:taskArguments -like '*-NonInteractive*-ReportOnly' -and $script:taskArguments -notlike '*-DryRun*') 'Task does not run report.'
@@ -209,6 +210,106 @@ try {
         $result=Invoke-NativeCommand "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" @('-NoProfile','-NonInteractive','-File',$child)
         Assert ($result.Success -and $result.StdOut.Trim() -eq 'REPORT_CREATED') 'Report-only entry entered menu.'
     }
+    Test 'Standard user cannot execute mutations but can read diagnostics' {
+        function Test-Administrator { $false }
+        $script:ran=$false
+        $result=Invoke-Action 'blocked mutation' {$script:ran=$true}
+        Assert (-not $result -and -not $script:ran -and -not $script:LastActionSucceeded) 'Standard user mutation was allowed.'
+        $result=Invoke-Action 'allowed diagnostic' -ReadOnly {$script:ran=$true}
+        Assert ($result -and $script:ran) 'Standard user diagnostic was blocked.'
+    }
+    Test 'Health score excludes unavailable measures and checks all firewall profiles' {
+        function Get-CimInstance {
+            param($ClassName,$Filter,$OperationTimeoutSec,$ErrorAction,$Namespace)
+            if($ClassName -eq 'Win32_LogicalDisk'){[pscustomobject]@{Size=100;FreeSpace=20}}
+            elseif($ClassName -eq 'Win32_StartupCommand'){1..9 | ForEach-Object {[pscustomobject]@{Name='App'}}}
+            else {throw 'Unexpected CIM query'}
+        }
+        function Get-MpComputerStatus { throw 'Access denied' }
+        function Get-NetFirewallProfile { @([pscustomobject]@{Enabled=$true},[pscustomobject]@{Enabled=$false}) }
+        function Get-NetAdapter { [pscustomobject]@{Status='Up'} }
+        $health=Get-HealthScore
+        Assert ($health.Score -eq 74 -and $health.MeasuredCount -eq 4 -and $health.IsPartial) 'Unknown data was scored or wrong average.'
+        Assert ($null -eq $health.Checks['Defender'] -and $health.Checks['Pare-feu'] -eq 30) 'Unavailable Defender or disabled firewall profile misrepresented.'
+        Assert ($health.Records[4].Detail -like '*ne sont pas testes*') 'Network limitations missing.'
+    }
+    Test 'Health score is unavailable when fewer than three measures exist' {
+        function Get-CimInstance { throw 'CIM unavailable' }
+        function Get-MpComputerStatus { throw 'Defender unavailable' }
+        function Get-NetFirewallProfile { [pscustomobject]@{Enabled=$true} }
+        function Get-NetAdapter { [pscustomobject]@{Status='Down'} }
+        $health=Get-HealthScore
+        Assert ($null -eq $health.Score -and $health.MeasuredCount -eq 2) 'Insufficient coverage produced a score.'
+    }
+    Test 'Third-party antivirus is unknown instead of an automatic failure' {
+        function Get-MpComputerStatus { [pscustomobject]@{AntivirusEnabled=$false;RealTimeProtectionEnabled=$false} }
+        function Get-CimInstance {
+            param($ClassName,$Namespace,$Filter,$OperationTimeoutSec,$ErrorAction)
+            if($ClassName -eq 'AntiVirusProduct'){[pscustomobject]@{displayName='Other antivirus'}}else{throw 'Not available'}
+        }
+        function Get-NetFirewallProfile { throw 'Not available' }
+        function Get-NetAdapter { throw 'Not available' }
+        $health=Get-HealthScore
+        Assert ($null -eq $health.Checks['Defender'] -and $health.Records[2].Detail -like '*autre antivirus*') 'Alternative antivirus treated as unprotected.'
+    }
+    Test 'Storage thresholds preserve boundary and fractional values' {
+        function Get-MpComputerStatus { throw 'Not available' }
+        function Get-NetFirewallProfile { throw 'Not available' }
+        function Get-NetAdapter { throw 'Not available' }
+        function Get-CimInstance {param($ClassName,$Filter,$OperationTimeoutSec,$ErrorAction);if($ClassName -eq 'Win32_LogicalDisk'){[pscustomobject]@{Size=1000;FreeSpace=$script:free}}else{throw 'Not available'}}
+        foreach($case in @(@(200,100),@(199,70),@(100,70),@(99,35),@(0,35))){
+            $script:free=$case[0];$health=Get-HealthScore
+            Assert ($health.Checks['Stockage'] -eq $case[1]) "Wrong storage threshold for $script:free"
+        }
+    }
+    Test 'Health report escapes diagnostic text and does not overwrite reports' {
+        function Get-HealthScore { [pscustomobject]@{Score=$null;MeasuredCount=2;TotalCount=5;IsPartial=$true;Records=@([pscustomobject]@{Name='<name>';Score=$null;Status='Indisponible';Detail='<script>alert(1)</script>';Recommendation='A & B'})} }
+        $before=@(Get-ChildItem $suiteRoot -Filter 'rapport-*.html').Count
+        New-HealthReport; New-HealthReport
+        $reports=@(Get-ChildItem $suiteRoot -Filter 'rapport-*.html')
+        Assert ($reports.Count -eq $before+2) 'Repeated report overwrote a file.'
+        $text=Get-Content ($reports | Sort-Object LastWriteTime | Select-Object -Last 1).FullName -Raw
+        Assert ($text -notlike '*<script>*' -and $text -like '*&lt;script&gt;*' -and $text -like '*Non calculable*') 'Report markup injection or misleading score.'
+    }
+    Test 'Zero-measure report produces an actionable failure' {
+        function Get-HealthScore { [pscustomobject]@{Score=$null;MeasuredCount=0;TotalCount=5;IsPartial=$true;Records=@()} }
+        $threw=$false
+        try { New-HealthReport } catch {$threw=$_.Exception.Message -like '*Aucune mesure*'}
+        Assert $threw 'Zero-measure diagnostic returned success.'
+    }
+    Test 'Backup validation rejects missing, duplicate and foreign category data' {
+        $state=[pscustomobject]@{SchemaVersion=2;Complete=$true;Category='Search';Computer=$env:COMPUTERNAME;UserSid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;Registry=@(Get-SearchSettings | ForEach-Object {[pscustomobject]@{Path=$_.Path;Name=$_.Name;Exists=$false}})}
+        Assert-BackupState $state
+        $good=@($state.Registry)
+        foreach($bad in @(@($good[0]),@($good[0],$good[0],$good[2],$good[3],$good[4]))){
+            $state.Registry=$bad;$threw=$false;try{Assert-BackupState $state}catch{$threw=$true};Assert $threw 'Incomplete or duplicate backup accepted.'
+        }
+        $state.Registry=$good
+        $state | Add-Member NoteProperty PowerGuid '381b4222-f694-41f0-9685-ff5bb260df2e'
+        $threw=$false;try{Assert-BackupState $state}catch{$threw=$true};Assert $threw 'Cross-category mutation accepted.'
+    }
+    Test 'Invalid final registry entry blocks restore before any backup or mutation' {
+        $fixture=Join-Path $suiteRoot 'invalid-restore';New-Item -ItemType Directory -Path $fixture | Out-Null
+        $entries=@(Get-SearchSettings | ForEach-Object {[pscustomobject]@{Path=$_.Path;Name=$_.Name;Exists=$false}})
+        $entries[-1].Path='HKLM:\SOFTWARE\Unrelated'
+        [pscustomobject]@{SchemaVersion=2;Complete=$true;Category='Search';Computer=$env:COMPUTERNAME;UserSid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;Registry=$entries} | Export-Clixml (Join-Path $fixture 'state.xml')
+        function Select-Backup { Get-Item $fixture }
+        function Confirm-Action { $true }
+        function New-StateBackup { throw 'BACKUP REACHED' }
+        Restore-State
+        Assert ((Get-Content $script:LogFile -Tail 1) -like '*hors du perimetre*') 'Restore began before complete payload validation.'
+    }
+    Test 'DNS payload rejects wrong address family before restore' {
+        $state=[pscustomobject]@{SchemaVersion=2;Complete=$true;Category='DNS';Computer=$env:COMPUTERNAME;UserSid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;AdapterGuid='11111111-1111-1111-1111-111111111111';DNS=@([pscustomobject]@{Family='IPv4';Automatic=$false;Servers=@('2001:db8::1')},[pscustomobject]@{Family='IPv6';Automatic=$true;Servers=@()})}
+        $threw=$false;try{Assert-BackupState $state}catch{$threw=$_.Exception.Message -like '*Adresse DNS*'}
+        Assert $threw 'Wrong address family accepted.'
+    }
+    Test 'Privacy payload rejects unrelated services and tasks' {
+        $state=[pscustomobject]@{SchemaVersion=2;Complete=$true;Category='Privacy';Computer=$env:COMPUTERNAME;UserSid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;Registry=@(Get-PrivacySettings | ForEach-Object {[pscustomobject]@{Path=$_.Path;Name=$_.Name;Exists=$false}});Services=@([pscustomobject]@{Name='WinDefend';Status='Stopped';StartType='Disabled'});Tasks=@()}
+        $threw=$false;try{Assert-BackupState $state}catch{$threw=$_.Exception.Message -like '*Service non autorise*'};Assert $threw 'Unrelated service accepted.'
+        $state.Services=@();$state.Tasks=@([pscustomobject]@{TaskPath='\';TaskName='Unrelated';Enabled=$false})
+        $threw=$false;try{Assert-BackupState $state}catch{$threw=$_.Exception.Message -like '*Tache non autorisee*'};Assert $threw 'Unrelated task accepted.'
+    }
     Test 'Menu quit exits after one prompt' {
         $ast=[Management.Automation.Language.Parser]::ParseFile($engine,[ref]$null,[ref]$null)
         $loop=$ast.EndBlock.Statements | Where-Object { $_ -is [Management.Automation.Language.DoWhileStatementAst] }
@@ -219,9 +320,9 @@ try {
         Assert ($script:prompts -eq 1) 'Quit did not exit.'
     }
     Test 'Report generates HTML from diagnostic data' {
-        function Get-HealthScore { [pscustomobject]@{Score=70;Checks=[ordered]@{Stockage=70};FreePercent=12} }
+        function Get-HealthScore { [pscustomobject]@{Score=70;MeasuredCount=3;TotalCount=5;IsPartial=$true;Records=@([pscustomobject]@{Name='Stockage';Score=70;Status='Attention';Detail='Test';Recommendation='Conseil'})} }
         New-HealthReport
-        $report=Get-Content (Join-Path $suiteRoot "rapport-$($script:Session).html") -Raw
+        $report=Get-Content (Get-ChildItem $suiteRoot -Filter 'rapport-*.html' | Select-Object -Last 1).FullName -Raw
         Assert ($report -like '*70/100*' -and $report -like '*Stockage*') 'Report content missing.'
     }
     Write-Host "$script:passed tests passed. No Windows configuration changed."

@@ -1,11 +1,11 @@
 ﻿[CmdletBinding()]
-param([string]$Version = '1.0.1-rc.1')
+param([string]$Version = '1.0.1-rc.2')
 $ErrorActionPreference = 'Stop'
 $projectRoot = $PSScriptRoot
 $site = Join-Path $projectRoot 'site'
 $app = Join-Path $projectRoot 'app'
 $release = Join-Path $projectRoot 'release'
-$requiredFiles = @('SCRIPT_TOOL.bat','SCRIPT_TOOL.ps1','State.ps1','README')
+$requiredFiles = @('SCRIPT_TOOL.bat','SCRIPT_TOOL.ps1','State.ps1','Health.ps1','README')
 if ($Version -notmatch '^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$') { throw 'Version invalide.' }
 foreach ($name in $requiredFiles) {
     $source = if ($name -eq 'README') { Join-Path $projectRoot 'README.md' } else { Join-Path $app $name }
@@ -14,6 +14,8 @@ foreach ($name in $requiredFiles) {
 # Les tests tournent dans un processus distinct et ne changent pas Windows.
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $projectRoot 'tests\Test-Tool.ps1')
 if ($LASTEXITCODE -ne 0) { throw 'Tests en echec : archive conservee, publication annulee.' }
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $projectRoot 'tests\Test-Launcher.ps1')
+if ($LASTEXITCODE -ne 0) { throw 'Tests du lanceur en echec : publication annulee.' }
 $stage = Join-Path ([IO.Path]::GetTempPath()) ('windows-care-release-' + [guid]::NewGuid().ToString('N'))
 try {
     New-Item -ItemType Directory -Force -Path $stage,$site,$release | Out-Null
@@ -37,6 +39,7 @@ try {
         $html = [IO.File]::ReadAllText($page)
         if ($html -notmatch '<span data-release>.*?</span>') { throw "Marqueur de version absent : $name" }
         $html = [regex]::Replace($html,'<span data-release>.*?</span>',"<span data-release>$label</span>")
+        $html = [regex]::Replace($html,'(<strong>Version de test publique[^<]*? )\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?(</strong>)', ('${1}' + $Version + '${2}'))
         $html = [regex]::Replace($html,'<code data-sha256>.*?</code>',"<code data-sha256>$hash</code>")
         [IO.File]::WriteAllText((Join-Path $stage $name),$html,[Text.UTF8Encoding]::new($false))
     }

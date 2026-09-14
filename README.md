@@ -7,7 +7,7 @@ TECH EXCHANGE est la plateforme creee et developpee par son fondateur developpeu
 ## Demarrage
 
 1. Telecharger ou cloner le projet.
-2. Lancer `app\SCRIPT_TOOL.bat`.
+2. Lancer `app\SCRIPT_TOOL.bat` depuis le depot, ou `SCRIPT_TOOL.bat` a la racine du ZIP extrait.
 3. Accepter l elevation administrateur lorsque Windows la demande.
 4. Choisir une action dans le menu vertical.
 
@@ -18,7 +18,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\app\SCRIPT_TOOL.ps1 -DryRu
 powershell -NoProfile -ExecutionPolicy Bypass -File .\app\SCRIPT_TOOL.ps1 -ReportOnly
 ```
 
-Les donnees sont stockees dans `app\data` dans le depot, ou `data` a cote du moteur apres extraction du ZIP. Conserver `State.ps1` avec `SCRIPT_TOOL.ps1`.
+Les commandes de cette page supposent le depot source. Dans le ZIP extrait, retirer `app\` du chemin du moteur.
+
+Les donnees sont stockees dans `app\data` dans le depot, ou `data` a cote du moteur apres extraction du ZIP. Si ce dossier est non inscriptible, l outil utilise `%LOCALAPPDATA%\WindowsCare\data` et affiche ce changement. Le parametre PowerShell `-DataDirectory` permet de choisir explicitement un dossier ; s il est inaccessible, le lancement echoue clairement. Conserver `State.ps1` et `Health.ps1` avec `SCRIPT_TOOL.ps1`.
+
+Le BAT ne demande pas d elevation pour `-DryRun` ou `-ReportOnly`. Un lancement PowerShell direct en session standard autorise les diagnostics et refuse les modifications systeme.
 
 ## Sauvegardes et limites
 
@@ -31,7 +35,7 @@ Les donnees sont stockees dans `app\data` dans le depot, ou `data` a cote du mot
 
 ## Maintenance automatique
 
-Le choix 19 planifie `-ReportOnly` chaque dimanche a 10 h pour le compte connecte, avec rattrapage lorsque possible et une limite de 15 minutes. Replanifier apres deplacement du dossier. Pour supprimer la tache, depuis une console administrateur :
+Le choix 19 planifie `-ReportOnly` chaque dimanche a 10 h pour le compte connecte, y compris sur batterie, avec rattrapage lorsque possible et une limite de 15 minutes. Le dossier de donnees courant est transmis a la tache. Replanifier apres deplacement du programme. Pour supprimer la tache, depuis une console administrateur :
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\app\SCRIPT_TOOL.ps1 -RemoveMaintenanceTask
@@ -45,14 +49,18 @@ Le choix 22 restaure manuellement le plan precedent ; il n y a pas de restaurati
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\Test-Tool.ps1
 ```
 
-Les tests chargent les fonctions sans demarrer le menu et simulent les modifications systeme. La version `1.0.1-rc.1` doit encore etre validee sur des machines virtuelles Windows 10 et 11 avant diffusion comme version stable. Voir `docs/VALIDATION_WINDOWS.md`.
+Les tests chargent les fonctions sans demarrer le menu et simulent les modifications systeme. Les essais du lanceur et du navigateur sont decrits dans `tests/README.md`. La version `1.0.1-rc.2` doit encore etre validee sur des machines virtuelles Windows 10 et 11 avant diffusion comme version stable. Voir `docs/VALIDATION_WINDOWS.md` et `docs/RESULTATS_RC2.md`.
+
+## Indicateur de sante
+
+Cinq mesures : espace libre, nombre de commandes au demarrage, protection Defender, configuration de tous les profils de pare-feu et interfaces reseau actives. Chaque mesure affiche son critere et un conseil. Les mesures indisponibles sont marquees N/D et exclues de la moyenne ; moins de trois mesures disponibles donnent un score non calculable. La couverture est toujours affichee. Un autre antivirus declare est signale comme non evalue, sans deduction automatique de panne. Une date de demarrage de Windows n ajoute plus de points au score. Les details du rapport sont echappes pour eviter qu un message de diagnostic soit interprete comme du HTML.
 
 ## Release
 
 Le script `build-release.ps1` execute les tests, verifie les fichiers requis, construit `release\SCRIPT_TOOL.zip`, calcule son SHA-256, copie l archive dans `site` et genere `site/version.json` ainsi que les informations de telechargement des pages HTML.
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\build-release.ps1 -Version 1.0.1-rc.1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\build-release.ps1 -Version 1.0.1-rc.2
 ```
 
 ## Site

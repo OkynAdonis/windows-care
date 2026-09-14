@@ -1,0 +1,17 @@
+name: Validate pull request
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test engine, launcher and package
+        shell: powershell
+        run: ./build-release.ps1
+      - name: Test browser interactions and layouts
+        shell: powershell
+        run: ./tests/Test-Site.ps1

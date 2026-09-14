@@ -23,6 +23,9 @@ jobs:
       - name: Test and build release
         shell: powershell
         run: ./build-release.ps1
+      - name: Validate site in browser
+        shell: powershell
+        run: ./tests/Test-Site.ps1
       - name: Upload validated site
         uses: actions/upload-artifact@v4
         with:

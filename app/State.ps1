@@ -15,8 +15,8 @@ function Get-SearchSettings {
     }
     [pscustomobject]@{Path='HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Search'; Name='BingSearchEnabled'; Value=0}
 }
-function Get-PrivacyTasks {
-    $paths = @(
+function Get-PrivacyTaskPaths {
+    @(
         '\Microsoft\Windows\Customer Experience Improvement Program\Consolidator',
         '\Microsoft\Windows\Customer Experience Improvement Program\KernelCeipTask',
         '\Microsoft\Windows\Customer Experience Improvement Program\UsbCeip',
@@ -26,7 +26,62 @@ function Get-PrivacyTasks {
         '\Microsoft\Windows\Feedback\Siuf\DmClientOnScenarioDownload',
         '\Microsoft\Windows\Windows Error Reporting\QueueReporting'
     )
+}
+function Get-PrivacyTasks {
+    $paths = @(Get-PrivacyTaskPaths)
     Get-ScheduledTask -ErrorAction Stop | Where-Object { ($_.TaskPath + $_.TaskName) -in $paths }
+}
+function Assert-BackupState {
+    param([Parameter(Mandatory=$true)]$State)
+    if ($State.SchemaVersion -ne 2 -or $State.Complete -isnot [bool] -or -not $State.Complete -or $State.Category -notin @('Privacy','Search','DNS','Power')) { throw 'Format de sauvegarde invalide ou incomplet.' }
+    if ($State.Computer -ne $env:COMPUTERNAME -or $State.UserSid -ne [Security.Principal.WindowsIdentity]::GetCurrent().User.Value) { throw 'Restaurer sur le meme ordinateur et avec le meme compte Windows.' }
+    $allowedFields = @('SchemaVersion','Category','CreatedAt','Computer','UserSid','Complete') + $(switch ($State.Category) {'Privacy' {@('Registry','Services','Tasks')} 'Search' {@('Registry')} 'DNS' {@('AdapterGuid','DNS')} 'Power' {@('PowerGuid')}})
+    foreach ($property in $State.PSObject.Properties.Name) { if ($property -notin $allowedFields) { throw "Champ non autorise dans cette categorie : $property" } }
+    if ($State.Category -in @('Privacy','Search')) {
+        $allowed = if ($State.Category -eq 'Privacy') { @(Get-PrivacySettings) } else { @(Get-SearchSettings) }
+        if (@($State.Registry).Count -ne $allowed.Count) { throw 'Sauvegarde registre incomplete.' }
+        $seen = @{}
+        foreach ($entry in $State.Registry) {
+            if (-not ($allowed | Where-Object {$_.Path -eq $entry.Path -and $_.Name -eq $entry.Name})) { throw 'Valeur de registre hors du perimetre de la categorie.' }
+            $id = "$($entry.Path)|$($entry.Name)"
+            if ($seen.ContainsKey($id) -or $entry.Exists -isnot [bool]) { throw 'Entree registre dupliquee ou invalide.' }
+            $seen[$id]=$true
+            if ($entry.Exists -and ($entry.Kind -notin @('DWord','QWord','String','ExpandString','Binary','MultiString') -or $null -eq $entry.Value)) { throw 'Type ou valeur de registre invalide.' }
+        }
+    }
+    if ($State.Category -eq 'Privacy') {
+        if ('Services' -notin $State.PSObject.Properties.Name -or 'Tasks' -notin $State.PSObject.Properties.Name) { throw 'Sauvegarde confidentialite incomplete.' }
+        $seen=@{}
+        foreach ($service in $State.Services) {
+            if ($service.Name -notin @('DiagTrack','diagsvc','WerSvc','wercplsupport') -or $service.StartType -notin @('Automatic','Manual','Disabled') -or $service.Status -notin @('Running','Stopped') -or $seen.ContainsKey($service.Name)) { throw 'Service non autorise ou etat transitoire : sauvegarde inutilisable.' }
+            if ($null -ne $service.DelayedAutoStart -and $service.DelayedAutoStart -notin @(0,1)) { throw 'Demarrage differe invalide.' }
+            $seen[$service.Name]=$true
+        }
+        $seen=@{}
+        foreach ($task in $State.Tasks) {
+            $id=$task.TaskPath + $task.TaskName
+            if ($id -notin @(Get-PrivacyTaskPaths) -or $task.Enabled -isnot [bool] -or $seen.ContainsKey($id)) { throw 'Tache non autorisee ou invalide.' }
+            $seen[$id]=$true
+        }
+    }
+    if ($State.Category -eq 'DNS') {
+        $guid=[guid]::Empty
+        if (-not [guid]::TryParse([string]$State.AdapterGuid,[ref]$guid) -or $guid -eq [guid]::Empty -or @($State.DNS).Count -ne 2) { throw 'Sauvegarde DNS incomplete.' }
+        $seen=@{}
+        foreach ($dns in $State.DNS) {
+            if ($dns.Family -notin @('IPv4','IPv6') -or $seen.ContainsKey($dns.Family) -or $dns.Automatic -isnot [bool]) { throw 'Famille DNS invalide ou dupliquee.' }
+            $seen[$dns.Family]=$true
+            if (-not $dns.Automatic) {
+                if (-not @($dns.Servers).Count) { throw 'Serveurs DNS statiques manquants.' }
+                foreach ($server in $dns.Servers) {
+                    $ip=$null
+                    $family=if($dns.Family -eq 'IPv4'){'InterNetwork'}else{'InterNetworkV6'}
+                    if (-not [Net.IPAddress]::TryParse([string]$server,[ref]$ip) -or [string]$ip.AddressFamily -ne $family) { throw 'Adresse DNS invalide.' }
+                }
+            }
+        }
+    }
+    if ($State.Category -eq 'Power' -and [string]$State.PowerGuid -notmatch '^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$') { throw 'GUID du plan invalide.' }
 }
 function New-StateBackup {
     param([ValidateSet('Privacy','Search','DNS','Power')][string]$Category,
@@ -70,6 +125,7 @@ function New-StateBackup {
         }
         if ($Category -eq 'Power') { $state.PowerGuid = Get-ActivePowerPlanGuid; if (-not $state.PowerGuid) { throw 'Plan actif introuvable.' } }
         $state.Complete = $true
+        Assert-BackupState ([pscustomobject]$state)
         [pscustomobject]$state | Export-Clixml -LiteralPath (Join-Path $path 'state.xml') -ErrorAction Stop
         [pscustomobject]@{SchemaVersion=2; Category=$Category; Complete=$true; CreatedAt=$state.CreatedAt} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $path 'manifest.json') -Encoding UTF8
         Write-Log "Sauvegarde $Category creee : $path" 'OK'
@@ -83,8 +139,7 @@ function Restore-State {
         $file = Join-Path $backup.FullName 'state.xml'
         if (-not (Test-Path -LiteralPath $file)) { throw 'Ancienne sauvegarde partielle : restauration automatique non prise en charge. Conserver les fichiers pour une restauration manuelle.' }
         $state = Import-Clixml -LiteralPath $file -ErrorAction Stop
-        if ($state.SchemaVersion -ne 2 -or -not $state.Complete -or $state.Category -notin @('Privacy','Search','DNS','Power')) { throw 'Format de sauvegarde invalide ou incomplet.' }
-        if ($state.Computer -ne $env:COMPUTERNAME -or $state.UserSid -ne [Security.Principal.WindowsIdentity]::GetCurrent().User.Value) { throw 'Restaurer sur le meme ordinateur et avec le meme compte Windows.' }
+        Assert-BackupState $state
         $adapter = $null
         if ($state.Category -eq 'DNS') {
             $adapter = @(Get-NetAdapter -ErrorAction Stop | Where-Object { [guid]$_.InterfaceGuid -eq [guid]$state.AdapterGuid })

@@ -1,0 +1,42 @@
+name: Signaler un probleme
+description: Signaler un defaut de la preversion Windows Care
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: "Merci de ne pas joindre de sauvegarde complete, de mot de passe ou de donnees personnelles. Relisez les extraits de journal avant de les partager."
+  - type: input
+    id: version
+    attributes:
+      label: Version de Windows Care
+      placeholder: "Exemple : 1.0.1-rc.2"
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Edition, version et langue de Windows
+      description: "Informations visibles avec la commande winver."
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Mode utilise
+      options:
+        - Simulation
+        - Diagnostic ou rapport
+        - Action systeme en administrateur
+        - Site web
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Etapes, resultat attendu et resultat observe
+      description: "Precisez le numero de l'action et si le probleme est reproductible."
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Extrait du journal ou capture anonymisee
+      description: "Masquez les noms de compte, chemins personnels, adresses reseau et autres informations sensibles."
