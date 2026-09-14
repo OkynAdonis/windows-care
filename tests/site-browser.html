@@ -44,10 +44,10 @@
     assert(doc.querySelector('#action-search-status').textContent.includes('Aucune'), 'Empty search feedback missing');
     assert(Array.from(doc.querySelectorAll('.action-card')).every(c => win.getComputedStyle(c).display === 'none'), 'Filtered cards remain displayed');
     search('');
-    assert(Array.from(doc.querySelectorAll('.action-card')).filter(c => !c.hidden).length === 23, 'Search reset did not restore 23 cards');
+    assert(Array.from(doc.querySelectorAll('.action-card')).filter(c => !c.hidden).length === 29, 'Search reset did not restore 29 cards');
     search('confidentialite');
     win.dispatchEvent(new win.PageTransitionEvent('pageshow', { persisted: true }));
-    assert(doc.querySelector('#action-search-status').textContent.includes('sur 23'), 'Restored search state missing');
+    assert(doc.querySelector('#action-search-status').textContent.includes('sur 29'), 'Restored search state missing');
     assert(win.__errors.length === 0, win.__errors.join(';'));
 
     ({ win, doc } = await load('index'));

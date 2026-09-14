@@ -412,11 +412,18 @@ function Show-Menu {
     Write-Host '  [21] Activer/desactiver le mode simulation'
     Write-Host '  [22] Restaurer le plan apres session'
     Write-Host '  [23] Voir les couts energetiques relatifs'
+    Write-Host '  [24] Diagnostic reseau detaille'
+    Write-Host '  [25] Diagnostic Windows Update'
+    Write-Host '  [26] Rechercher les pilotes en erreur'
+    Write-Host '  [27] Creer un rapport batterie'
+    Write-Host '  [28] Creer un point de restauration Windows'
+    Write-Host '  [29] Creer un dossier de support partageable'
     Write-Host '  [ 0] Quitter'
 }
 
 . (Join-Path $script:Root 'State.ps1')
 . (Join-Path $script:Root 'Health.ps1')
+. (Join-Path $script:Root 'Support.ps1')
 if ($ReportOnly) { try { New-HealthReport; exit 0 } catch { Write-Log $_.Exception.Message 'ERROR'; exit 1 } }
 if ($RemoveMaintenanceTask -or $Restore) {
     try {
@@ -451,6 +458,12 @@ do {
         '21' { $script:Simulation = -not $script:Simulation; Write-Log "Mode simulation : $script:Simulation" 'WARN'; Pause-Tool }
         '22' { Restore-TemporaryPowerPlan; Pause-Tool }
         '23' { Show-PowerEnergyCosts; Pause-Tool }
+        '24' { Show-NetworkDiagnostic; Pause-Tool }
+        '25' { Show-WindowsUpdateDiagnostic; Pause-Tool }
+        '26' { Show-DriverIssues; Pause-Tool }
+        '27' { New-BatteryDiagnostic; Pause-Tool }
+        '28' { New-SystemRestorePoint; Pause-Tool }
+        '29' { New-SupportBundle; Pause-Tool }
         '0' { return }
         default { Write-Log 'Choix invalide.' 'WARN'; Pause-Tool }
     }

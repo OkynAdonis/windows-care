@@ -1,11 +1,11 @@
 ﻿[CmdletBinding()]
-param([string]$Version = '1.0.1-rc.3')
+param([string]$Version = '1.0.1-rc.4')
 $ErrorActionPreference = 'Stop'
 $projectRoot = $PSScriptRoot
 $site = Join-Path $projectRoot 'site'
 $app = Join-Path $projectRoot 'app'
 $release = Join-Path $projectRoot 'release'
-$requiredFiles = @('SCRIPT_TOOL.bat','SCRIPT_TOOL.ps1','State.ps1','Health.ps1','README')
+$requiredFiles = @('SCRIPT_TOOL.bat','SCRIPT_TOOL.ps1','State.ps1','Health.ps1','Support.ps1','README')
 if ($Version -notmatch '^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$') { throw 'Version invalide.' }
 foreach ($name in $requiredFiles) {
     $source = if ($name -eq 'README') { Join-Path $projectRoot 'README.md' } else { Join-Path $app $name }

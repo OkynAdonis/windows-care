@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Guide des 23 actions de Windows Care par TECH EXCHANGE.">
+  <meta name="description" content="Guide des 29 actions de Windows Care par TECH EXCHANGE.">
   <link rel="icon" type="image/png" href="assets/TE.png">
   <link rel="stylesheet" href="styles.css">
   <title>Windows Care | Guide des actions</title>
@@ -14,23 +14,23 @@
     <nav class="top-nav" aria-label="Navigation principale"><a href="index.html">Accueil</a><a class="contact" href="mailto:techexchange50@gmail.com">Nous contacter</a></nav>
   </header>
   <aside class="release-notice" aria-label="Statut de la version">
-    <strong>Version de test publique — 1.0.1-rc.3</strong>
+    <strong>Version de test publique — 1.0.1-rc.4</strong>
     <p>La validation réelle des actions système sur Windows 10 et 11 reste à terminer. Commencez par le mode simulation et consultez les limites de restauration dans le guide. Les fichiers supprimés par le nettoyage ne sont pas récupérables par Windows Care.</p>
     <a href="https://github.com/OkynAdonis/windows-care/issues/new">Signaler un problème sur GitHub</a>
   </aside>
   <main>
     <section class="guide-hero">
       <p class="eyebrow">Windows Care / documentation</p>
-      <h1>23 actions,<br><em>un système plus clair.</em></h1>
+      <h1>29 actions,<br><em>un système plus clair.</em></h1>
       <p>Ce guide explique chaque choix du menu avant son lancement. Les actions qui modifient Windows demandent une confirmation et créent une sauvegarde lorsque cela est nécessaire.</p>
       <a class="button primary download-button" href="SCRIPT_TOOL.zip" download data-download>Télécharger Windows Care <span>↓</span></a>
-      <p class="download-meta"><span data-release>ZIP · 57,0 Ko · version 1.0.1-rc.3 · 14/09/2026</span> · Windows 10/11<br>Droits administrateur requis pour les actions système · Mode simulation disponible</p>
+      <p class="download-meta"><span data-release>ZIP · 66,5 Ko · version 1.0.1-rc.4 · 15/09/2026</span> · Windows 10/11<br>Droits administrateur requis pour les actions système · Mode simulation disponible</p>
     </section>
     <section class="guide-list section">
       <div class="section-label">01 / Le menu complet</div>
       <label class="guide-search" for="action-search"><span>Rechercher une action</span><input id="action-search" type="search" placeholder="Ex. réseau, nettoyage, confidentialité" autocomplete="off" aria-describedby="action-search-status"></label>
-      <p id="action-search-status" class="search-status" role="status" aria-live="polite" aria-atomic="true">23 actions disponibles.</p>
-      <noscript><p>La recherche nécessite JavaScript. Les 23 actions sont consultables ci-dessous.</p></noscript>
+      <p id="action-search-status" class="search-status" role="status" aria-live="polite" aria-atomic="true">29 actions disponibles.</p>
+      <noscript><p>La recherche nécessite JavaScript. Les 29 actions sont consultables ci-dessous.</p></noscript>
       <div class="action-list">
         <article class="action-card reveal"><span class="action-number">01</span><div><h2>État système</h2><p>Affiche la version de Windows, le dernier démarrage, l’espace libre, le plan d’alimentation et les interfaces réseau actives.</p><small>DIAGNOSTIC · SANS MODIFICATION</small></div></article>
         <article class="action-card reveal"><span class="action-number">02</span><div><h2>Score de santé du PC</h2><p>Présente cinq mesures avec leurs critères et recommandations. Les données indisponibles sont exclues ; le score nécessite au moins trois mesures. Le réseau local ne constitue pas un test Internet.</p><small>DIAGNOSTIC · RECOMMANDATIONS</small></div></article>
@@ -55,9 +55,15 @@
         <article class="action-card reveal"><span class="action-number">21</span><div><h2>Mode simulation</h2><p>Bloque les modifications système et les sauvegardes. Les diagnostics restent disponibles ; les journaux et rapports locaux peuvent être écrits.</p><small>PRUDENCE · RECOMMANDÉ AVANT ESSAI</small></div></article>
         <article class="action-card reveal"><span class="action-number">22</span><div><h2>Restaurer le plan après session</h2><p>Rétablit manuellement le plan enregistré avant le premier changement de profil.</p><small>ALIMENTATION · RESTAURATION</small></div></article>
         <article class="action-card reveal"><span class="action-number">23</span><div><h2>Coûts énergétiques relatifs</h2><p>Compare la consommation relative des plans. Il ne s’agit pas d’une mesure électrique ni d’un prix calculé.</p><small>INFORMATION · SANS MODIFICATION</small></div></article>
+        <article class="action-card reveal"><span class="action-number">24</span><div><h2>Diagnostic réseau détaillé</h2><p>Sépare la configuration des interfaces, la résolution DNS et la connexion HTTPS afin de localiser la panne.</p><small>DIAGNOSTIC · CONNEXION TESTÉE</small></div></article>
+        <article class="action-card reveal"><span class="action-number">25</span><div><h2>Diagnostic Windows Update</h2><p>Affiche les services essentiels, les dernières mises à jour et les raisons détectées d’un redémarrage en attente.</p><small>DIAGNOSTIC · SANS MODIFICATION</small></div></article>
+        <article class="action-card reveal"><span class="action-number">26</span><div><h2>Pilotes en erreur</h2><p>Recherche les périphériques dont Windows signale un code d’erreur. Aucun pilote tiers n’est téléchargé ou installé.</p><small>DIAGNOSTIC · GESTIONNAIRE DE PÉRIPHÉRIQUES</small></div></article>
+        <article class="action-card reveal"><span class="action-number">27</span><div><h2>Rapport batterie</h2><p>Crée le rapport HTML officiel de Windows lorsqu’une batterie est détectée.</p><small>RAPPORT · ORDINATEUR PORTABLE</small></div></article>
+        <article class="action-card reveal"><span class="action-number">28</span><div><h2>Point de restauration Windows</h2><p>Demande à Windows de créer un point de restauration avant des modifications. La Protection du système doit être disponible et activée.</p><small>PRUDENCE · MODIFICATION CONFIRMÉE</small></div></article>
+        <article class="action-card reveal"><span class="action-number">29</span><div><h2>Dossier de support</h2><p>Regroupe diagnostic, santé, pilotes, mises à jour, démarrage et journaux récents. Relire les informations locales avant tout partage.</p><small>ASSISTANCE · DONNÉES À RELIRE</small></div></article>
       </div>
     </section>
-    <section class="download-band"><div><p class="eyebrow">TECH EXCHANGE / Windows Care</p><h2>Comprendre d’abord. Agir ensuite.</h2></div><div><p class="download-meta dark-meta"><span data-release>ZIP · 57,0 Ko · version 1.0.1-rc.3 · 14/09/2026</span></p><a class="button primary download-button" href="SCRIPT_TOOL.zip" download data-download>Télécharger Windows Care <span>↓</span></a></div></section>
+    <section class="download-band"><div><p class="eyebrow">TECH EXCHANGE / Windows Care</p><h2>Comprendre d’abord. Agir ensuite.</h2></div><div><p class="download-meta dark-meta"><span data-release>ZIP · 66,5 Ko · version 1.0.1-rc.4 · 15/09/2026</span></p><a class="button primary download-button" href="SCRIPT_TOOL.zip" download data-download>Télécharger Windows Care <span>↓</span></a></div></section>
   </main>
   <footer><div class="footer-brand"><img src="assets/TE.png" alt="Logo TECH EXCHANGE"><div><strong>TECH EXCHANGE</strong><span>Solutions numériques</span></div></div><div class="footer-links"><a href="index.html">Accueil</a><a href="guide.html">Guide des actions</a><a href="SCRIPT_TOOL.zip" download>Télécharger</a></div><div class="footer-contact"><a href="tel:+24177171432">+241 77 17 14 32</a><a href="mailto:techexchange50@gmail.com">techexchange50@gmail.com</a></div><div class="footer-qr"><a href="https://okynadonis.github.io/windows-care/" aria-label="Ouvrir le site officiel Windows Care"><img src="assets/windows-care-qr.png" alt="QR code vers le site officiel Windows Care" width="1000" height="1000" loading="lazy" decoding="async"></a><div><strong>Partager Windows Care</strong><span>Scannez pour ouvrir le site officiel</span><a href="https://okynadonis.github.io/windows-care/">okynadonis.github.io/windows-care/</a></div></div><div class="footer-bottom"><span>© 2026 TECH EXCHANGE</span><span>Créé et développé par TECH EXCHANGE</span></div></footer>
   <script src="motion.js"></script>

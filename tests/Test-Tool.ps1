@@ -4,6 +4,7 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
 $engine = Join-Path $projectRoot 'app\SCRIPT_TOOL.ps1'
 $support = Join-Path $projectRoot 'app\State.ps1'
+$advanced = Join-Path $projectRoot 'app\Support.ps1'
 $suiteRoot = Join-Path ([IO.Path]::GetTempPath()) ('windows-care-tests-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $suiteRoot | Out-Null
 $script:DataRoot = $suiteRoot
@@ -17,7 +18,7 @@ $script:passed = 0
 function Assert($condition, $message) { if (-not $condition) { throw $message } }
 function Test($name, [scriptblock]$body) { & $body; $script:passed++; Write-Host "PASS $name" -ForegroundColor Green }
 try {
-    foreach ($file in @($engine,$support,(Join-Path $projectRoot 'app\Health.ps1'),(Join-Path $projectRoot 'build-release.ps1'))) {
+    foreach ($file in @($engine,$support,(Join-Path $projectRoot 'app\Health.ps1'),$advanced,(Join-Path $projectRoot 'build-release.ps1'))) {
         $errors = $null
         $ast = [Management.Automation.Language.Parser]::ParseFile($file,[ref]$null,[ref]$errors)
         Assert (@($errors).Count -eq 0) "Syntaxe invalide : $file : $errors"
@@ -349,6 +350,28 @@ try {
         $script:prompts=0
         & ([scriptblock]::Create($loop.Extent.Text))
         Assert ($script:prompts -eq 1) 'Quit did not exit.'
+    }
+    Test 'Pending reboot reports every detected source' {
+        function Test-Path { param($LiteralPath); $LiteralPath -like '*RebootPending' -or $LiteralPath -like '*RebootRequired' }
+        function Get-ItemProperty { [pscustomobject]@{PendingFileRenameOperations=@('old','new')} }
+        $state=Get-PendingRebootState
+        Assert ($state.Pending -and $state.Reasons.Count -eq 3) 'Pending reboot sources were lost.'
+    }
+    Test 'Driver diagnostic keeps only devices with errors' {
+        function Get-CimInstance { @([pscustomobject]@{Name='OK';ConfigManagerErrorCode=0},[pscustomobject]@{Name='Broken';ConfigManagerErrorCode=28;PNPClass='Net';DeviceID='ID'}) }
+        $issues=@(Get-DriverIssues)
+        Assert ($issues.Count -eq 1 -and $issues[0].Name -eq 'Broken' -and $issues[0].ConfigManagerErrorCode -eq 28) 'Healthy device included or broken device missing.'
+    }
+    Test 'Network diagnostic separates DNS and Internet failures' {
+        function Get-NetIPConfiguration { [pscustomobject]@{InterfaceAlias='Ethernet';IPv4Address=@([pscustomobject]@{IPAddress='192.0.2.10'});IPv4DefaultGateway=@([pscustomobject]@{NextHop='192.0.2.1'});DNSServer=[pscustomobject]@{ServerAddresses=@('1.1.1.1')}} }
+        function Resolve-DnsName { [pscustomobject]@{IPAddress='203.0.113.10'} }
+        function Test-NetConnection { $false }
+        $network=Get-NetworkDiagnostic
+        Assert ($network.Adapters.Count -eq 1 -and $network.DNS.Success -and -not $network.Internet.Success) 'Network layers were conflated.'
+    }
+    Test 'Support collection preserves unavailable diagnostics' {
+        $value=Get-SafeDiagnosticValue 'Restricted source' { throw 'Access denied' }
+        Assert ($value.Unavailable -and $value.Name -eq 'Restricted source' -and $value.Error -eq 'Access denied') 'Unavailable support data aborted or disappeared.'
     }
     Test 'Report generates HTML from diagnostic data' {
         function Get-HealthScore { [pscustomobject]@{Score=70;MeasuredCount=3;TotalCount=5;IsPartial=$true;Records=@([pscustomobject]@{Name='Stockage';Score=70;Status='Attention';Detail='Test';Recommendation='Conseil'})} }

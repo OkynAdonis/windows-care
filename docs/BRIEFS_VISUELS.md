@@ -22,7 +22,7 @@ Composition conseillee :
 2. Titre : `Votre PC, plus clair.`
 3. Sous-titre : `Diagnostiquer · Reparer · Maintenir · Optimiser`.
 4. Visuel central : capture du rapport dans un cadre simple, avec le libelle `Exemple de rapport local`.
-5. Trois preuves courtes : `23 actions guidees`, `Mode simulation`, `Rapports locaux`.
+5. Trois preuves courtes : `29 actions guidees`, `Mode simulation`, `Rapports locaux`.
 6. Bouton visuel : `Tester la preversion`.
 7. Bas de page : URL, `Windows 10/11`, `Version de test publique`, signature TECH EXCHANGE.
 
@@ -34,7 +34,7 @@ Texte de publication :
 
 Format : 1080 × 1920 px. Garder les textes essentiels entre 250 et 1650 px de hauteur pour eviter les zones masquees par les interfaces sociales.
 
-- Ecran 1 : logo et `23 actions Windows dans un seul outil local`.
+- Ecran 1 : logo et `29 actions Windows dans un seul outil local`.
 - Ecran 2 : capture du menu et `Choisissez une action guidee`.
 - Ecran 3 : capture du rapport et `Comprenez le resultat avant d agir`.
 - Ecran 4 : `Mode simulation disponible` puis URL et QR code.
@@ -60,7 +60,7 @@ Titre : `Windows Care — comprendre avant d agir`.
 Corps :
 
 - `Diagnostic et rapport de sante local`
-- `23 actions guidees`
+- `29 actions guidees`
 - `Mode simulation pour decouvrir l outil`
 - `Windows 10 et Windows 11`
 
@@ -68,7 +68,7 @@ Bas de page : QR code, URL complete, mention `Preversion publique`, contact `tec
 
 ## Visuels encore utiles a produire
 
-- Une capture propre du menu `rc.3` montrant les 23 choix et le statut de session standard ou administrateur. La capture actuelle est ancienne et n affiche que les choix 1 a 15.
+- Une capture propre du menu montrant les 29 choix et le statut de session standard ou administrateur. La capture actuelle est ancienne et n affiche que les choix 1 a 15.
 - Une capture de sauvegarde et restauration sur une VM jetable, apres validation reelle.
 - Une courte video verticale de 15 a 25 secondes : ouverture, mode simulation, score, rapport. Aucun changement systeme reel pendant l enregistrement.
 - QR code haute resolution produit : `site/assets/windows-care-qr.png`, 1000 × 1000 px, correction H et marge blanche. Le décodage automatisé confirme l URL officielle ; le test de lecture sur Android et iPhone reste à faire avant impression ou campagne.
