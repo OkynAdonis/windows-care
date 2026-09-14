@@ -35,11 +35,15 @@ try {
         $archive = [IO.Compression.ZipArchive]::new($archiveStream,[IO.Compression.ZipArchiveMode]::Create,$false)
         try {
             foreach ($name in $requiredFiles) {
-                $entry = $archive.CreateEntry($name,[IO.Compression.CompressionLevel]::Optimal)
+                $entry = $archive.CreateEntry($name,[IO.Compression.CompressionLevel]::NoCompression)
                 $entry.LastWriteTime = [DateTimeOffset]::new(2000,1,1,0,0,0,[TimeSpan]::Zero)
-                $input = [IO.File]::OpenRead((Join-Path $payload $name))
                 $output = $entry.Open()
-                try { $input.CopyTo($output) } finally { $output.Dispose(); $input.Dispose() }
+                try {
+                    # Le checkout Git peut fournir LF ou CRLF selon la machine.
+                    $content = [IO.File]::ReadAllText((Join-Path $payload $name),[Text.Encoding]::UTF8)
+                    $bytes = [Text.UTF8Encoding]::new($false).GetBytes(($content -replace "`r?`n","`r`n"))
+                    $output.Write($bytes,0,$bytes.Length)
+                } finally { $output.Dispose() }
             }
         } finally { $archive.Dispose() }
     } finally { $archiveStream.Dispose() }
