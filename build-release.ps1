@@ -46,7 +46,7 @@ try {
     Copy-Item -LiteralPath $candidate -Destination (Join-Path $release 'SCRIPT_TOOL.zip') -Force
     Copy-Item -LiteralPath $candidate -Destination (Join-Path $site 'SCRIPT_TOOL.zip') -Force
     foreach ($name in @('index.html','guide.html')) { Copy-Item -LiteralPath (Join-Path $stage $name) -Destination (Join-Path $site $name) -Force }
-    $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $site 'version.json') -Encoding UTF8
+    [IO.File]::WriteAllText((Join-Path $site 'version.json'), ($manifest | ConvertTo-Json -Depth 4), [Text.UTF8Encoding]::new($false))
     Write-Host "Release $Version : $size Ko | SHA-256 $hash"
 } finally {
     $resolved = [IO.Path]::GetFullPath($stage)
