@@ -15,14 +15,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Test and build release
+        shell: powershell
+        run: ./build-release.ps1
+      - name: Upload validated site
+        uses: actions/upload-artifact@v4
+        with:
+          name: validated-site
+          path: site
   deploy:
+    needs: build
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Download validated site
+        uses: actions/download-artifact@v4
+        with:
+          name: validated-site
+          path: site
       - name: Configure Pages
         uses: actions/configure-pages@v5
         with:

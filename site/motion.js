@@ -8,6 +8,7 @@ revealItems.forEach((item, index) => {
 });
 
 if ('IntersectionObserver' in window && !reduceMotion) {
+  document.documentElement.classList.add('js-motion');
   const observer = new IntersectionObserver((entries, currentObserver) => {
     entries.forEach((entry) => {
       if (entry.isIntersecting) {
@@ -68,7 +69,7 @@ document.querySelectorAll('a[href$=".html"]').forEach((link) => {
   });
 });
 
-// Filtre les 21 actions sans recharger la page.
+// Filtre les 23 actions sans recharger la page.
 const actionSearch = document.querySelector('#action-search');
 if (actionSearch) {
   actionSearch.addEventListener('input', () => {

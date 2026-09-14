@@ -4,14 +4,15 @@
 # Ce fichier centralise les fonctions de diagnostic, maintenance et restauration.
 
 [CmdletBinding()]
-param([switch]$DryRun, [switch]$Restore)
+param([switch]$DryRun, [switch]$Restore, [switch]$ReportOnly, [switch]$RemoveMaintenanceTask)
 
 $ErrorActionPreference = 'Stop'
+if (([int][bool]$Restore + [int][bool]$ReportOnly + [int][bool]$RemoveMaintenanceTask) -gt 1) { throw 'Choisir un seul mode : Restore, ReportOnly ou RemoveMaintenanceTask.' }
 $script:Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $script:DataRoot = Join-Path $script:Root 'data'
 $script:BackupRoot = Join-Path $script:DataRoot 'backups'
 $script:LogRoot = Join-Path $script:DataRoot 'logs'
-$script:Session = Get-Date -Format 'yyyyMMdd-HHmmss'
+$script:Session = Get-Date -Format 'yyyyMMdd-HHmmss-fff'
 $script:LogFile = Join-Path $script:LogRoot "session-$($script:Session).log"
 $script:Simulation = [bool]$DryRun
 New-Item -ItemType Directory -Force -Path $script:BackupRoot, $script:LogRoot | Out-Null
@@ -38,7 +39,8 @@ function Invoke-NativeCommand {
         [Parameter(Mandatory = $true)][string]$FilePath,
         [string[]]$Arguments = @(),
         [string]$Title = $FilePath,
-        [switch]$AllowFailure
+        [switch]$AllowFailure,
+        [int[]]$SuccessCodes = @(0)
     )
 
     $tempRoot = Join-Path $env:TEMP "windows-care-$($script:Session)"
@@ -47,17 +49,21 @@ function Invoke-NativeCommand {
     $stderrPath = Join-Path $tempRoot ([guid]::NewGuid().ToString() + '.err')
     $argumentString = ($Arguments | ForEach-Object {
         $argument = [string]$_
-        if ($argument -match '[\s"]') { '"' + $argument.Replace('"', '\"') + '"' } else { $argument }
+        if ($argument -eq '' -or $argument -match '[\s"]') {
+            $argument = [regex]::Replace($argument, '(\\*)"', '$1$1\"')
+            '"' + [regex]::Replace($argument, '(\\+)$', '$1$1') + '"'
+        } else { $argument }
     }) -join ' '
 
     try {
         $process = Start-Process -FilePath $FilePath -ArgumentList $argumentString -Wait -PassThru -NoNewWindow -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
-        $stdout = if (Test-Path $stdoutPath) { Get-Content -LiteralPath $stdoutPath -Raw } else { '' }
-        $stderr = if (Test-Path $stderrPath) { Get-Content -LiteralPath $stderrPath -Raw } else { '' }
-        $result = [pscustomobject]@{ Command = "$FilePath $argumentString"; ExitCode = $process.ExitCode; StdOut = $stdout; StdErr = $stderr; Success = ($process.ExitCode -eq 0) }
+        $stdout = [IO.File]::ReadAllText($stdoutPath)
+        $stderr = [IO.File]::ReadAllText($stderrPath)
+        $result = [pscustomobject]@{ Command = "$FilePath $argumentString"; ExitCode = $process.ExitCode; StdOut = $stdout; StdErr = $stderr; Success = ($process.ExitCode -in $SuccessCodes) }
         if ($stdout.Trim()) { Write-Log "$Title | stdout : $($stdout.Trim())" }
         if ($stderr.Trim()) { Write-Log "$Title | stderr : $($stderr.Trim())" $(if ($result.Success) { 'WARN' } else { 'ERROR' }) }
         Write-Log "$Title | code de sortie : $($result.ExitCode)" $(if ($result.Success) { 'OK' } else { 'ERROR' })
+        if ($result.ExitCode -eq 3010 -and $result.Success) { Write-Log 'Redemarrage Windows necessaire pour terminer cette operation.' 'WARN' }
         if (-not $result.Success -and -not $AllowFailure) { throw "La commande a echoue avec le code $($result.ExitCode)." }
         return $result
     } finally {
@@ -67,10 +73,10 @@ function Invoke-NativeCommand {
 
 # Encadre une action pour gerer le mode simulation, les erreurs et le resultat.
 function Invoke-Action {
-    param([string]$Title, [scriptblock]$Action)
+    param([string]$Title, [scriptblock]$Action, [switch]$ReadOnly)
     Write-Log $Title
-    if ($script:Simulation) { Write-Log 'Simulation : aucune modification appliquee.' 'WARN'; return $true }
-    try { & $Action; Write-Log "$Title : termine." 'OK'; return $true }
+    if ($script:Simulation -and -not $ReadOnly) { Write-Log 'Simulation : aucune modification appliquee.' 'WARN'; return $true }
+    try { & $Action | Out-Host; Write-Log "$Title : termine." 'OK'; return $true }
     catch { Write-Log "$Title : $($_.Exception.Message)" 'ERROR'; return $false }
 }
 
@@ -81,63 +87,15 @@ function Confirm-Action {
     return (Read-Host "$Message (O/N)") -match '^(O|o|Oui|oui)$'
 }
 
-# Sauvegarde les reglages importants avant une modification.
-function New-StateBackup {
-    $path = Join-Path $script:BackupRoot $script:Session
-    New-Item -ItemType Directory -Force -Path $path | Out-Null
-    try {
-        Invoke-NativeCommand 'reg.exe' @('export','HKLM\SOFTWARE\Policies\Microsoft\Windows\DataCollection',(Join-Path $path 'telemetry-hklm.reg'),'/y') 'Sauvegarde telemetrie' -AllowFailure | Out-Null
-        Invoke-NativeCommand 'reg.exe' @('export','HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Search',(Join-Path $path 'search-hkcu.reg'),'/y') 'Sauvegarde recherche' -AllowFailure | Out-Null
-        Invoke-NativeCommand 'reg.exe' @('export','HKLM\SOFTWARE\Policies\Microsoft\Windows\Windows Search',(Join-Path $path 'windows-search.reg'),'/y') 'Sauvegarde Windows Search' -AllowFailure | Out-Null
-        Get-NetIPConfiguration | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $path 'network.json')
-        (Invoke-NativeCommand 'powercfg.exe' @('-getactivescheme') 'Sauvegarde plan alimentation').StdOut | Set-Content (Join-Path $path 'power-plan.txt')
-        Get-Service -Name DiagTrack,diagsvc,WerSvc,wercplsupport -ErrorAction SilentlyContinue | Select-Object Name,StartType,Status | ConvertTo-Json | Set-Content (Join-Path $path 'services.json')
-        [pscustomobject]@{
-            SchemaVersion = 1
-            CreatedAt = (Get-Date).ToString('o')
-            Product = 'Windows Care'
-            Categories = @('Registry','Network','PowerPlan','Services')
-            Files = @('telemetry-hklm.reg','search-hkcu.reg','windows-search.reg','network.json','power-plan.txt','services.json')
-        } | ConvertTo-Json | Set-Content (Join-Path $path 'manifest.json')
-        Write-Log "Sauvegarde creee : $path" 'OK'
-    } catch { Write-Log "Sauvegarde incomplete : $($_.Exception.Message)" 'ERROR' }
-    return $path
-}
-
 # Affiche les sauvegardes disponibles et retourne celle choisie.
 function Select-Backup {
     $items = @(Get-ChildItem -LiteralPath $script:BackupRoot -Directory | Sort-Object Name -Descending)
     if (-not $items) { Write-Log 'Aucune sauvegarde disponible.' 'WARN'; return $null }
     for ($i = 0; $i -lt $items.Count; $i++) { Write-Host "[$($i + 1)] $($items[$i].Name)" }
     $choice = Read-Host 'Choisir une sauvegarde'
-    if ($choice -as [int] -and $choice -ge 1 -and $choice -le $items.Count) { return $items[$choice - 1] }
+    $index = 0
+    if ([int]::TryParse($choice,[ref]$index) -and $index -ge 1 -and $index -le $items.Count) { return $items[$index - 1] }
     Write-Log 'Choix invalide.' 'WARN'; return $null
-}
-
-# Restaure les reglages exportes dans une sauvegarde precedente.
-function Restore-State {
-    $backup = Select-Backup
-    if (-not $backup -or -not (Confirm-Action "Restaurer la sauvegarde $($backup.Name)")) { return }
-    Invoke-Action "Restauration de $($backup.Name)" {
-        foreach ($file in @('telemetry-hklm.reg','search-hkcu.reg','windows-search.reg')) {
-            $path = Join-Path $backup.FullName $file
-            if (Test-Path $path) { Invoke-NativeCommand 'reg.exe' @('import',$path) "Restauration registre $file" | Out-Null }
-        }
-        $power = Join-Path $backup.FullName 'power-plan.txt'
-        if (Test-Path $power) {
-            $guid = [regex]::Match((Get-Content $power -Raw), '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}').Value
-            if ($guid) { Invoke-NativeCommand 'powercfg.exe' @('-setactive',$guid) 'Restauration plan alimentation' | Out-Null }
-        }
-        $servicesPath = Join-Path $backup.FullName 'services.json'
-        if (Test-Path $servicesPath) {
-            foreach ($service in @(Get-Content $servicesPath -Raw | ConvertFrom-Json)) {
-                Set-Service -Name $service.Name -StartupType $service.StartType -ErrorAction SilentlyContinue
-            }
-        }
-        if (Test-Path (Join-Path $backup.FullName 'network.json')) {
-            Write-Log 'Les parametres reseau sont conserves dans network.json; restauration automatique evitee pour proteger une interface differente.' 'WARN'
-        }
-    } | Out-Null
 }
 
 # Affiche un diagnostic rapide du systeme, des disques et du reseau.
@@ -170,6 +128,7 @@ function Get-PowerEnergyEstimate {
 function Save-TemporaryPowerPlan {
     param([string]$Guid, [string]$Profile)
     if (-not $Guid) { return }
+    if (Test-Path -LiteralPath (Join-Path $script:DataRoot 'temporary-power-plan.json')) { return }
     $estimate = Get-PowerEnergyEstimate $Profile
     [pscustomobject]@{ Guid = $Guid; Profile = $Profile; SavedAt = (Get-Date).ToString('o'); EnergyCost = $estimate.Cost } |
         ConvertTo-Json | Set-Content (Join-Path $script:DataRoot 'temporary-power-plan.json')
@@ -183,6 +142,7 @@ function Restore-TemporaryPowerPlan {
     $saved = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
     if (-not (Confirm-Action "Restaurer le plan precedent $($saved.Guid)")) { return }
     Invoke-Action 'Restauration du plan precedent' {
+        New-StateBackup -Category Power | Out-Null
         Invoke-NativeCommand 'powercfg.exe' @('-setactive',$saved.Guid) 'Restauration plan temporaire' | Out-Null
         Remove-Item -LiteralPath $path -Force
     } | Out-Null
@@ -256,8 +216,8 @@ function Start-RepairAssistant {
 function Set-Profile {
     param([ValidateSet('Office','Gaming','Laptop','Privacy')][string]$Profile)
     switch ($Profile) {
-        'Office' { Set-Performance -Mode High; Write-Log 'Profil Bureautique : performance stable.' 'OK' }
-        'Gaming' { Set-Performance -Mode Ultimate; Write-Log 'Profil Gaming : plan de performance active.' 'OK' }
+        'Office' { Set-Performance -Mode Balanced }
+        'Gaming' { Set-Performance -Mode Ultimate }
         'Laptop' { Set-Performance -Mode Balanced }
         'Privacy' { Set-Privacy; Set-SearchPrivacy }
     }
@@ -268,28 +228,47 @@ function Register-MaintenanceTask {
     if (-not (Confirm-Action 'Planifier un rapport de sante hebdomadaire')) { return }
     $scriptPath = Join-Path $script:Root 'SCRIPT_TOOL.ps1'
     Invoke-Action 'Planification de la maintenance hebdomadaire' {
-        $action = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`" -DryRun"
-        Invoke-NativeCommand 'schtasks.exe' @('/Create','/TN','TECH EXCHANGE - Rapport sante','/TR',$action,'/SC','WEEKLY','/D','SUN','/ST','10:00','/F') 'Planification rapport sante' | Out-Null
+        if (-not (Test-Path -LiteralPath $scriptPath)) { throw 'Script de rapport introuvable.' }
+        $action = New-ScheduledTaskAction -Execute "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -Argument "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$scriptPath`" -ReportOnly" -WorkingDirectory $script:Root
+        $trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At '10:00'
+        $principal = New-ScheduledTaskPrincipal -UserId ([Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Highest
+        $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 15)
+        Register-ScheduledTask -TaskName 'TECH EXCHANGE - Rapport sante' -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force -ErrorAction Stop | Out-Null
+        Write-Log 'Rapport le dimanche a 10h, compte connecte. Replanifier si le dossier est deplace.'
+    } | Out-Null
+}
+
+function Unregister-MaintenanceTask {
+    if (-not (Confirm-Action 'Supprimer la maintenance hebdomadaire')) { return }
+    Invoke-Action 'Suppression de la maintenance hebdomadaire' {
+        Unregister-ScheduledTask -TaskName 'TECH EXCHANGE - Rapport sante' -Confirm:$false -ErrorAction Stop
     } | Out-Null
 }
 
 # Nettoie les fichiers temporaires et la corbeille.
 function Clean-System {
-    if (-not (Confirm-Action 'Nettoyer les fichiers temporaires et la corbeille')) { return }
-    New-StateBackup | Out-Null
+    if (-not (Confirm-Action 'Supprimer les fichiers temporaires et vider la corbeille (fichiers non recuperables par Windows Care)')) { return }
     Invoke-Action 'Nettoyage des fichiers temporaires' {
-        foreach ($path in @($env:TEMP, "$env:WINDIR\Temp", "$env:WINDIR\Prefetch")) {
-            if (Test-Path $path) { Get-ChildItem -LiteralPath $path -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue }
+        $skipped = 0
+        foreach ($path in @($env:TEMP, "$env:WINDIR\Temp")) {
+            $resolved = [IO.Path]::GetFullPath($path).TrimEnd('\')
+            if ($resolved -eq [IO.Path]::GetPathRoot($resolved).TrimEnd('\') -or $resolved -eq $env:WINDIR -or $resolved -eq $env:USERPROFILE) { throw 'Dossier temporaire non sur.' }
+            if (Test-Path -LiteralPath $resolved) {
+                foreach ($item in Get-ChildItem -LiteralPath $resolved -Force -ErrorAction Stop) {
+                    try { Remove-TemporaryEntry -Item $item -Root $resolved } catch { $skipped++; Write-Log $_.Exception.Message 'WARN' }
+                }
+            }
         }
-        Clear-RecycleBin -Force -ErrorAction SilentlyContinue
+        try { Clear-RecycleBin -Force -ErrorAction Stop } catch { $skipped++; Write-Log $_.Exception.Message 'WARN' }
+        if ($skipped) { throw "Nettoyage partiel : $skipped element(s) ignore(s), verrouille(s) ou inaccessible(s)." }
     } | Out-Null
 }
 
 # Repare limage Windows puis verifie les fichiers systeme.
 function Repair-Windows {
     if (-not (Confirm-Action 'Executer DISM puis SFC')) { return }
-    New-StateBackup | Out-Null
-    Invoke-Action 'Reparation de limage Windows avec DISM' { Invoke-NativeCommand 'DISM.exe' @('/Online','/Cleanup-Image','/RestoreHealth') 'Reparation DISM' | Out-Null } | Out-Null
+    $ok = Invoke-Action 'Reparation de limage Windows avec DISM' { Invoke-NativeCommand 'DISM.exe' @('/Online','/Cleanup-Image','/RestoreHealth') 'Reparation DISM' -SuccessCodes @(0,3010) | Out-Null }
+    if (-not $ok) { return }
     Invoke-Action 'Verification des fichiers systeme avec SFC' { Invoke-NativeCommand 'sfc.exe' @('/scannow') 'Verification SFC' | Out-Null } | Out-Null
 }
 
@@ -300,81 +279,120 @@ function Set-DnsServers {
     if (-not $adapters) { Write-Log 'Aucune interface reseau active.' 'WARN'; return }
     for ($i = 0; $i -lt $adapters.Count; $i++) { Write-Host "[$($i + 1)] $($adapters[$i].Name)" }
     $choice = Read-Host 'Choisir une interface'
-    if (-not ($choice -as [int]) -or $choice -lt 1 -or $choice -gt $adapters.Count) { Write-Log 'Choix invalide.' 'WARN'; return }
-    $adapter = $adapters[$choice - 1]
+    $index = 0
+    if (-not [int]::TryParse($choice,[ref]$index) -or $index -lt 1 -or $index -gt $adapters.Count) { Write-Log 'Choix invalide.' 'WARN'; return }
+    $adapter = $adapters[$index - 1]
     if (-not (Confirm-Action "Configurer $($adapter.Name) avec $($Servers -join ', ')")) { return }
-    New-StateBackup | Out-Null
-    Invoke-Action "Configuration DNS de $($adapter.Name)" { Set-DnsClientServerAddress -InterfaceIndex $adapter.ifIndex -ServerAddresses $Servers } | Out-Null
+    Invoke-Action "Configuration DNS de $($adapter.Name)" {
+        New-StateBackup -Category DNS -Adapter $adapter | Out-Null
+        Get-DnsClientServerAddress -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -ErrorAction Stop | Set-DnsClientServerAddress -ServerAddresses $Servers -ErrorAction Stop
+    } | Out-Null
 }
 
 # Reinitialise Winsock, TCP/IP et le cache DNS.
 function Reset-Network {
-    if (-not (Confirm-Action 'Reinitialiser le reseau et vider le cache DNS')) { return }
-    New-StateBackup | Out-Null
+    if (-not (Confirm-Action 'Reinitialiser Winsock et TCP/IP (pas de restauration automatique de cette reinitialisation, redemarrage possible)')) { return }
     Invoke-Action 'Reinitialisation reseau' { Invoke-NativeCommand 'ipconfig.exe' @('/flushdns') 'Vidage cache DNS' | Out-Null; Invoke-NativeCommand 'netsh.exe' @('winsock','reset') 'Reinitialisation Winsock' | Out-Null; Invoke-NativeCommand 'netsh.exe' @('int','ip','reset') 'Reinitialisation TCP/IP' | Out-Null } | Out-Null
 }
 
 # Desactive certaines taches et regles de telemetrie Windows.
 function Set-Privacy {
     if (-not (Confirm-Action 'Appliquer les reglages de confidentialite et telemetrie')) { return }
-    New-StateBackup | Out-Null
     Invoke-Action 'Configuration de la telemetrie Windows' {
-        foreach ($task in @('\Microsoft\Windows\Customer Experience Improvement Program\Consolidator','\Microsoft\Windows\Customer Experience Improvement Program\KernelCeipTask','\Microsoft\Windows\Customer Experience Improvement Program\UsbCeip','\Microsoft\Windows\Autochk\Proxy','\Microsoft\Windows\DiskDiagnostic\Microsoft-Windows-DiskDiagnosticDataCollector','\Microsoft\Windows\Feedback\Siuf\DmClient','\Microsoft\Windows\Feedback\Siuf\DmClientOnScenarioDownload','\Microsoft\Windows\Windows Error Reporting\QueueReporting')) { Disable-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue | Out-Null }
-        foreach ($service in @('DiagTrack','diagsvc','WerSvc','wercplsupport')) { Set-Service -Name $service -StartupType Manual -ErrorAction SilentlyContinue }
-        foreach ($item in @(@('HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection','AllowTelemetry',0),@('HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection','DisableOneSettingsDownloads',1),@('HKLM:\SOFTWARE\Policies\Microsoft\SQMClient\Windows','CEIPEnable',0),@('HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\DataCollection','AllowTelemetry',0),@('HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Error Reporting','Disabled',1),@('HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting','Disabled',1))) { New-Item -Path $item[0] -Force | Out-Null; New-ItemProperty -Path $item[0] -Name $item[1] -PropertyType DWord -Value $item[2] -Force | Out-Null }
+        New-StateBackup -Category Privacy | Out-Null
+        foreach ($task in Get-PrivacyTasks) { Disable-ScheduledTask -TaskName $task.TaskName -TaskPath $task.TaskPath -ErrorAction Stop | Out-Null }
+        foreach ($service in Get-Service -ErrorAction Stop | Where-Object Name -in @('DiagTrack','diagsvc','WerSvc','wercplsupport')) { Set-Service -Name $service.Name -StartupType Manual -ErrorAction Stop }
+        foreach ($item in Get-PrivacySettings) {
+            if (-not (Test-Path -LiteralPath $item.Path)) { New-Item -Path $item.Path -Force -ErrorAction Stop | Out-Null }
+            New-ItemProperty -LiteralPath $item.Path -Name $item.Name -PropertyType DWord -Value $item.Value -Force -ErrorAction Stop | Out-Null
+        }
     } | Out-Null
 }
 
+# Parcourt explicitement les dossiers sans suivre les jonctions ou liens.
+function Remove-TemporaryEntry {
+    param([IO.FileSystemInfo]$Item, [string]$Root)
+    $target = [IO.Path]::GetFullPath($Item.FullName)
+    $prefix = [IO.Path]::GetFullPath($Root).TrimEnd('\') + '\'
+    if (-not $target.StartsWith($prefix,[StringComparison]::OrdinalIgnoreCase)) { throw 'Element hors du dossier temporaire.' }
+    foreach ($protected in @($script:Root,$script:DataRoot)) {
+        $protectedPath = [IO.Path]::GetFullPath($protected).TrimEnd('\')
+        if ($target -eq $protectedPath -or $protectedPath.StartsWith($target.TrimEnd('\') + '\',[StringComparison]::OrdinalIgnoreCase)) { throw "Dossier de l outil ignore : $target" }
+    }
+    if ($Item.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw "Lien ignore : $target" }
+    if ($Item.PSIsContainer) {
+        foreach ($child in Get-ChildItem -LiteralPath $target -Force -ErrorAction Stop) { Remove-TemporaryEntry -Item $child -Root $Root }
+    }
+    Remove-Item -LiteralPath $target -Force -ErrorAction Stop
+}
 # Reduit les recherches web et les fonctions cloud de Windows Search.
 function Set-SearchPrivacy {
     if (-not (Confirm-Action 'Desactiver la recherche web et les fonctions cloud de Search')) { return }
-    New-StateBackup | Out-Null
     Invoke-Action 'Configuration de Windows Search' {
-        $path = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search'; New-Item -Path $path -Force | Out-Null
-        foreach ($item in @('ConnectedSearchUseWeb','DisableWebSearch','AllowCloudSearch','AllowCortana')) { New-ItemProperty -Path $path -Name $item -PropertyType DWord -Value 0 -Force | Out-Null }
-        New-ItemProperty -Path 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Search' -Name BingSearchEnabled -PropertyType DWord -Value 0 -Force | Out-Null
+        New-StateBackup -Category Search | Out-Null
+        foreach ($item in Get-SearchSettings) {
+            if (-not (Test-Path -LiteralPath $item.Path)) { New-Item -Path $item.Path -Force -ErrorAction Stop | Out-Null }
+            New-ItemProperty -LiteralPath $item.Path -Name $item.Name -PropertyType DWord -Value $item.Value -Force -ErrorAction Stop | Out-Null
+        }
     } | Out-Null
 }
-
 # Active un plan d alimentation standard ou performances optimales.
 function Set-Performance {
     param([ValidateSet('Balanced','High','Ultimate')][string]$Mode)
     if (-not (Confirm-Action "Activer le plan de performance $Mode")) { return }
-    $previousPlan = $null
-    try { $previousPlan = Get-ActivePowerPlanGuid }
-    catch { Write-Log "Impossible de lire le plan actif avant changement : $($_.Exception.Message)" 'WARN' }
-    New-StateBackup | Out-Null
-    $guid = switch ($Mode) {
-        'Balanced' { 'SCHEME_BALANCED' }
-        'High' { '8c5e7fda-e8df-4a96-9a96-a6e23a8c635c' }
-        'Ultimate' { 'e9a42b02-d5df-448d-aa00-03f14749eb61' }
-    }
     Invoke-Action "Activation du plan $Mode" {
-        if ($Mode -ne 'Balanced') {
-            Invoke-NativeCommand 'powercfg.exe' @('-duplicatescheme',$guid) "Creation plan $Mode" -AllowFailure | Out-Null
-            $plans = (Invoke-NativeCommand 'powercfg.exe' @('-list') 'Lecture plans alimentation').StdOut
-            $line = $plans | Select-String -Pattern $Mode | Select-Object -First 1
-            $found = [regex]::Match($line.Line, '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}').Value
-            $guid = if ($found) { $found } else { $guid }
+        $previousPlan = Get-ActivePowerPlanGuid
+        if (-not $previousPlan) { throw 'Plan actif introuvable.' }
+        New-StateBackup -Category Power | Out-Null
+        $guid = switch ($Mode) {
+            'Balanced' { '381b4222-f694-41f0-9685-ff5bb260df2e' }
+            'High' { '8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c' }
+            'Ultimate' { 'e9a42b02-d5df-448d-aa00-03f14749eb61' }
         }
-        Invoke-NativeCommand 'powercfg.exe' @('-setactive',$guid) "Activation plan $Mode" | Out-Null
+        $plans = (Invoke-NativeCommand 'powercfg.exe' @('-list') 'Lecture plans alimentation').StdOut
+        $ids = @([regex]::Matches($plans, '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}') | ForEach-Object Value)
+        if ($guid -notin $ids) {
+            # Destination explicite : aucune dependance aux noms traduits ou a la sortie.
+            Invoke-NativeCommand 'powercfg.exe' @('-duplicatescheme',$guid,$guid) "Creation plan $Mode" | Out-Null
+        }
         Save-TemporaryPowerPlan $previousPlan $Mode
+        Invoke-NativeCommand 'powercfg.exe' @('-setactive',$guid) "Activation plan $Mode" | Out-Null
+        if ((Get-ActivePowerPlanGuid) -ne $guid) { throw 'Le plan demande ne correspond pas au plan actif.' }
         $estimate = Get-PowerEnergyEstimate $Mode
         Write-Host "Cout energetique relatif : $($estimate.Cost) - $($estimate.Detail)" -ForegroundColor Yellow
         Write-Host 'Restauration disponible dans le menu avec le choix [22].' -ForegroundColor Cyan
     } | Out-Null
 }
-
 # Reinitialise les composants principaux de Windows Update.
 function Repair-Update {
-    if (-not (Confirm-Action 'Reinitialiser le cache Windows Update')) { return }
-    New-StateBackup | Out-Null
-    Invoke-Action 'Reparation de Windows Update' { Stop-Service wuauserv,bits,cryptsvc -Force -ErrorAction SilentlyContinue; Rename-Item "$env:WINDIR\SoftwareDistribution" 'SoftwareDistribution.old' -ErrorAction SilentlyContinue; Rename-Item "$env:WINDIR\System32\catroot2" 'catroot2.old' -ErrorAction SilentlyContinue; Start-Service cryptsvc,bits,wuauserv -ErrorAction SilentlyContinue } | Out-Null
+    if (-not (Confirm-Action 'Reinitialiser les caches Windows Update (anciens caches conserves sur disque, sans restauration automatique)')) { return }
+    Invoke-Action 'Reparation de Windows Update' {
+        $services = @(Get-Service -Name wuauserv,bits,cryptsvc -ErrorAction Stop | Select-Object Name,Status)
+        $failures = [Collections.Generic.List[string]]::new()
+        try {
+            foreach ($service in $services) { Stop-Service -Name $service.Name -Force -ErrorAction Stop }
+            $suffix = '.windows-care-' + [guid]::NewGuid().ToString('N')
+            foreach ($path in @("$env:WINDIR\SoftwareDistribution", "$env:WINDIR\System32\catroot2")) {
+                if (Test-Path -LiteralPath $path) {
+                    $resolved = (Resolve-Path -LiteralPath $path -ErrorAction Stop).ProviderPath
+                    $windowsRoot = (Resolve-Path -LiteralPath $env:WINDIR -ErrorAction Stop).ProviderPath.TrimEnd('\') + '\'
+                    if (-not $resolved.StartsWith($windowsRoot,[StringComparison]::OrdinalIgnoreCase)) { throw 'Cache hors du dossier Windows.' }
+                    Rename-Item -LiteralPath $resolved -NewName ((Split-Path $resolved -Leaf) + $suffix) -ErrorAction Stop
+                    Write-Log "Ancien cache conserve : $resolved$suffix"
+                }
+            }
+        } catch { $failures.Add($_.Exception.Message) }
+        finally {
+            foreach ($service in $services | Where-Object Status -eq 'Running') {
+                try { Start-Service -Name $service.Name -ErrorAction Stop } catch { $failures.Add($_.Exception.Message) }
+            }
+        }
+        if ($failures.Count) { throw ($failures -join '; ') }
+    } | Out-Null
 }
-
 # Fonctions de rapports courts pour les disques et les programmes au demarrage.
-function Show-DiskHealth { Invoke-Action 'Lecture de letat des disques' { Get-PhysicalDisk | Select-Object FriendlyName,MediaType,HealthStatus,OperationalStatus,Size | Format-Table -AutoSize } | Out-Null }
-function Show-StartupReport { Invoke-Action 'Creation du rapport des programmes au demarrage' { $report = Join-Path $script:DataRoot "startup-$($script:Session).txt"; Get-CimInstance Win32_StartupCommand | Select-Object Name,Command,Location,User | Format-List | Out-File $report; Write-Log "Rapport : $report" 'OK' } | Out-Null }
+function Show-DiskHealth { Invoke-Action 'Lecture de letat des disques' -ReadOnly { Get-PhysicalDisk | Select-Object FriendlyName,MediaType,HealthStatus,OperationalStatus,Size | Format-Table -AutoSize } | Out-Null }
+function Show-StartupReport { Invoke-Action 'Creation du rapport des programmes au demarrage' -ReadOnly { $report = Join-Path $script:DataRoot "startup-$($script:Session).txt"; Get-CimInstance Win32_StartupCommand | Select-Object Name,Command,Location,User | Format-List | Out-File $report; Write-Log "Rapport : $report" 'OK' } | Out-Null }
 
 function Pause-Tool { Read-Host 'Appuyer sur Entree pour continuer' | Out-Null }
 
@@ -416,11 +434,14 @@ function Show-Menu {
     Write-Host '  [ 0] Quitter'
 }
 
+. (Join-Path $script:Root 'State.ps1')
+if ($ReportOnly) { try { New-HealthReport; exit 0 } catch { Write-Log $_.Exception.Message 'ERROR'; exit 1 } }
 if (-not (Test-Administrator)) { Write-Log 'L outil doit etre lance en tant qu administrateur.' 'ERROR'; exit 1 }
+if ($RemoveMaintenanceTask) { Unregister-MaintenanceTask; exit }
 if ($Restore) { Restore-State; exit }
 do {
     Show-Menu; $choice = Read-Host 'Votre choix'
-    switch ($choice) {
+    try { switch ($choice) {
         '1' { Show-Status; Pause-Tool }
         '2' { Show-HealthScore; Pause-Tool }
         '3' { New-HealthReport; Pause-Tool }
@@ -444,7 +465,8 @@ do {
         '21' { $script:Simulation = -not $script:Simulation; Write-Log "Mode simulation : $script:Simulation" 'WARN'; Pause-Tool }
         '22' { Restore-TemporaryPowerPlan; Pause-Tool }
         '23' { Show-PowerEnergyCosts; Pause-Tool }
-        '0' { break }
+        '0' { return }
         default { Write-Log 'Choix invalide.' 'WARN'; Pause-Tool }
     }
+    } catch { Write-Log $_.Exception.Message 'ERROR'; Pause-Tool }
 } while ($true)

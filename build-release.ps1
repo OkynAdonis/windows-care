@@ -1,61 +1,54 @@
-[CmdletBinding()]
-param([string]$Version = '1.0.0')
-
+﻿[CmdletBinding()]
+param([string]$Version = '1.0.1-rc.1')
 $ErrorActionPreference = 'Stop'
-$root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$site = Join-Path $root 'site'
-$app = Join-Path $root 'app'
-$docs = Join-Path $root 'docs'
-$release = Join-Path $root 'release'
-$archive = Join-Path $release 'SCRIPT_TOOL.zip'
-$siteArchive = Join-Path $site 'SCRIPT_TOOL.zip'
-$versionFile = Join-Path $site 'version.json'
-$requiredFiles = @('SCRIPT_TOOL.bat', 'SCRIPT_TOOL.ps1', 'README')
-$sourceFiles = @('SCRIPT_TOOL.bat', 'SCRIPT_TOOL.ps1') | ForEach-Object { Join-Path $app $_ }
-$stage = Join-Path $env:TEMP "windows-care-release-$([guid]::NewGuid().ToString())"
-
-Write-Host 'TECH EXCHANGE / BUILD RELEASE'
-
-foreach ($file in $requiredFiles) {
-    $path = if ($file -eq 'README') { Join-Path $root 'README.md' } else { Join-Path $app $file }
-    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
-        throw "Fichier requis absent : $file"
+$projectRoot = $PSScriptRoot
+$site = Join-Path $projectRoot 'site'
+$app = Join-Path $projectRoot 'app'
+$release = Join-Path $projectRoot 'release'
+$requiredFiles = @('SCRIPT_TOOL.bat','SCRIPT_TOOL.ps1','State.ps1','README')
+if ($Version -notmatch '^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$') { throw 'Version invalide.' }
+foreach ($name in $requiredFiles) {
+    $source = if ($name -eq 'README') { Join-Path $projectRoot 'README.md' } else { Join-Path $app $name }
+    if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw "Fichier requis absent : $name" }
+}
+# Les tests tournent dans un processus distinct et ne changent pas Windows.
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $projectRoot 'tests\Test-Tool.ps1')
+if ($LASTEXITCODE -ne 0) { throw 'Tests en echec : archive conservee, publication annulee.' }
+$stage = Join-Path ([IO.Path]::GetTempPath()) ('windows-care-release-' + [guid]::NewGuid().ToString('N'))
+try {
+    New-Item -ItemType Directory -Force -Path $stage,$site,$release | Out-Null
+    $payload = Join-Path $stage 'payload'
+    New-Item -ItemType Directory -Path $payload | Out-Null
+    foreach ($name in $requiredFiles) {
+        $source = if ($name -eq 'README') { Join-Path $projectRoot 'README.md' } else { Join-Path $app $name }
+        Copy-Item -LiteralPath $source -Destination (Join-Path $payload $name)
+    }
+    $candidate = Join-Path $stage 'SCRIPT_TOOL.zip'
+    Compress-Archive -Path (Join-Path $payload '*') -DestinationPath $candidate -CompressionLevel Optimal
+    $info = Get-Item -LiteralPath $candidate
+    $hash = (Get-FileHash -LiteralPath $candidate -Algorithm SHA256).Hash
+    $manifest = [ordered]@{Product='Windows Care'; Platform='TECH EXCHANGE'; Version=$Version; ReleaseDate=(Get-Date).ToString('yyyy-MM-dd'); Archive='SCRIPT_TOOL.zip'; SizeBytes=$info.Length; SizeKB=[math]::Round($info.Length/1KB,1); SHA256=$hash; Files=$requiredFiles}
+    # Metadonnees generees dans le HTML : disponibles meme sans JavaScript.
+    $size = $manifest.SizeKB.ToString('0.0',[Globalization.CultureInfo]::GetCultureInfo('fr-FR'))
+    $date = (Get-Date).ToString('dd/MM/yyyy')
+    $label = "ZIP · $size Ko · version $Version · $date"
+    foreach ($name in @('index.html','guide.html')) {
+        $page = Join-Path $site $name
+        $html = [IO.File]::ReadAllText($page)
+        if ($html -notmatch '<span data-release>.*?</span>') { throw "Marqueur de version absent : $name" }
+        $html = [regex]::Replace($html,'<span data-release>.*?</span>',"<span data-release>$label</span>")
+        $html = [regex]::Replace($html,'<code data-sha256>.*?</code>',"<code data-sha256>$hash</code>")
+        [IO.File]::WriteAllText((Join-Path $stage $name),$html,[Text.UTF8Encoding]::new($false))
+    }
+    Copy-Item -LiteralPath $candidate -Destination (Join-Path $release 'SCRIPT_TOOL.zip') -Force
+    Copy-Item -LiteralPath $candidate -Destination (Join-Path $site 'SCRIPT_TOOL.zip') -Force
+    foreach ($name in @('index.html','guide.html')) { Copy-Item -LiteralPath (Join-Path $stage $name) -Destination (Join-Path $site $name) -Force }
+    $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $site 'version.json') -Encoding UTF8
+    Write-Host "Release $Version : $size Ko | SHA-256 $hash"
+} finally {
+    $resolved = [IO.Path]::GetFullPath($stage)
+    $tempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\') + '\'
+    if ($resolved.StartsWith($tempBase,[StringComparison]::OrdinalIgnoreCase) -and (Split-Path $resolved -Leaf) -like 'windows-care-release-*') {
+        if (Test-Path -LiteralPath $resolved) { Remove-Item -LiteralPath $resolved -Recurse -Force }
     }
 }
-
-$parseErrors = $null
-[System.Management.Automation.Language.Parser]::ParseFile((Join-Path $app 'SCRIPT_TOOL.ps1'), [ref]$null, [ref]$parseErrors) | Out-Null
-if ($parseErrors.Count -gt 0) {
-    $messages = ($parseErrors | ForEach-Object { $_.Message }) -join '; '
-    throw "Syntaxe PowerShell invalide : $messages"
-}
-
-New-Item -ItemType Directory -Force -Path $site, $release, $stage | Out-Null
-Remove-Item -LiteralPath $archive, $siteArchive -Force -ErrorAction SilentlyContinue
-Copy-Item (Join-Path $app 'SCRIPT_TOOL.bat') (Join-Path $stage 'SCRIPT_TOOL.bat')
-Copy-Item (Join-Path $app 'SCRIPT_TOOL.ps1') (Join-Path $stage 'SCRIPT_TOOL.ps1')
-Copy-Item (Join-Path $root 'README.md') (Join-Path $stage 'README')
-Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $archive -CompressionLevel Optimal
-Copy-Item -LiteralPath $archive -Destination $siteArchive -Force
-
-$archiveInfo = Get-Item -LiteralPath $siteArchive
-$hash = (Get-FileHash -LiteralPath $siteArchive -Algorithm SHA256).Hash
-$manifest = [ordered]@{
-    Product = 'Windows Care'
-    Platform = 'TECH EXCHANGE'
-    Version = $Version
-    ReleaseDate = (Get-Date).ToString('yyyy-MM-dd')
-    Archive = 'SCRIPT_TOOL.zip'
-    SizeBytes = $archiveInfo.Length
-    SizeKB = [math]::Round($archiveInfo.Length / 1KB, 1)
-    SHA256 = $hash
-    Files = $requiredFiles
-}
-$manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $versionFile -Encoding UTF8
-
-Write-Host "Version : $Version"
-Write-Host "Archive : $siteArchive"
-Write-Host "Taille  : $($manifest.SizeKB) Ko"
-Write-Host "SHA-256 : $hash"
-Write-Host "Manifest: $versionFile"
-Remove-Item -LiteralPath $stage -Recurse -Force
