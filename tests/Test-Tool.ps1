@@ -380,6 +380,12 @@ try {
         $value=Get-SafeDiagnosticValue 'Restricted source' { throw 'Access denied' }
         Assert ($value.Unavailable -and $value.Name -eq 'Restricted source' -and $value.Error -eq 'Access denied') 'Unavailable support data aborted or disappeared.'
     }
+    Test 'Every menu action has a complete pre-execution guide' {
+        foreach($number in 1..29){
+            $guide=Get-ActionGuide $number
+            Assert ($guide.Title -and $guide.Steps -and $guide.Impact -and $guide.Result) "Incomplete guide for action $number."
+        }
+    }
     Test 'Report generates HTML from diagnostic data' {
         function Get-HealthScore { [pscustomobject]@{Score=70;MeasuredCount=3;TotalCount=5;IsPartial=$true;Records=@([pscustomobject]@{Name='Stockage';Score=70;Status='Attention';Detail='Test';Recommendation='Conseil'})} }
         New-HealthReport

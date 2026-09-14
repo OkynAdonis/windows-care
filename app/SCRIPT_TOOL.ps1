@@ -236,6 +236,54 @@ function Register-MaintenanceTask {
     } | Out-Null
 }
 
+# Explique le parcours choisi avant son execution et avant toute confirmation.
+function Get-ActionGuide {
+    param([ValidateRange(1,29)][int]$Number)
+    $guides = @{
+        1=@('Etat systeme','Lit Windows, disques, alimentation et reseau.','Aucune modification.','Resume affiche dans la console.')
+        2=@('Score de sante','Mesure stockage, demarrage, antivirus, pare-feu et reseau.','Aucune modification.','Score, couverture et recommandations.')
+        3=@('Rapport de sante','Calcule les mesures puis construit une page HTML locale.','Ecrit uniquement dans le dossier de donnees.','Rapport HTML horodate.')
+        4=@('Assistant de reparation','Demande le symptome puis propose les diagnostics et reparations adaptes.','Depend du parcours choisi ; chaque mutation reste confirmee.','Parcours guide avec journal.')
+        5=@('Nettoyage systeme','Parcourt les dossiers temporaires puis vide la corbeille.','Supprime des fichiers ; Windows Care ne peut pas les restaurer.','Espace libere et elements ignores journalises.')
+        6=@('Reparation Windows','Execute DISM, puis SFC uniquement si DISM reussit.','Peut remplacer des fichiers systeme et demander un redemarrage.','Codes de sortie et resultat journalises.')
+        7=@('DNS Google','Sauvegarde le DNS de l interface choisie puis configure Google DNS.','Modifie le DNS IPv4 de cette interface.','Restauration disponible par le choix 20.')
+        8=@('DNS Cloudflare','Sauvegarde le DNS de l interface choisie puis configure Cloudflare.','Modifie le DNS IPv4 de cette interface.','Restauration disponible par le choix 20.')
+        9=@('Reinitialisation reseau','Vide le cache DNS et reinitialise Winsock puis TCP/IP.','Modifie la pile reseau ; redemarrage possible.','Resultat des trois commandes journalise.')
+        10=@('Confidentialite et telemetrie','Sauvegarde puis ajuste les taches, services et politiques documentes.','Modifie registre, services et taches planifiees.','Restauration disponible par le choix 20.')
+        11=@('Confidentialite Search','Sauvegarde puis reduit la recherche web et les fonctions cloud.','Modifie des politiques du registre Windows Search.','Restauration disponible par le choix 20.')
+        12=@('Profil Bureautique','Sauvegarde et active le plan Equilibre.','Change le plan d alimentation actif.','Retour rapide avec le choix 22.')
+        13=@('Profil Gaming','Sauvegarde et active Performances optimales.','Augmente potentiellement la consommation et la chauffe.','Retour rapide avec le choix 22.')
+        14=@('Profil Portable','Sauvegarde et active le plan Equilibre.','Change le plan d alimentation actif.','Retour rapide avec le choix 22.')
+        15=@('Profil Confidentialite','Applique successivement telemetrie puis Search si la premiere etape reussit.','Modifie registre, services et taches apres confirmations.','Sauvegardes restaurables par le choix 20.')
+        16=@('Reparation Windows Update','Arrete les services, renomme les caches puis retablit les services actifs.','Conserve les anciens caches ; pas de restauration automatique.','Etapes et erreurs journalisees.')
+        17=@('Etat des disques','Interroge Windows sur les disques physiques et leur sante.','Aucune modification.','Tableau des statuts materiels.')
+        18=@('Programmes au demarrage','Inventorie les commandes lancees avec Windows.','Ecrit uniquement un rapport texte local.','Fichier horodate dans le dossier de donnees.')
+        19=@('Maintenance hebdomadaire','Cree une tache le dimanche a 10 h pour produire un rapport de sante.','Ajoute ou remplace la tache Windows Care du compte courant.','Rapport automatique, suppression possible par parametre.')
+        20=@('Restauration','Valide la sauvegarde, sauvegarde l etat actuel puis restaure la categorie.','Modifie uniquement les elements valides de la categorie choisie.','Etat precedent restaure et nouvelle sauvegarde de securite.')
+        21=@('Mode simulation','Inverse le mode simulation pour la session courante.','En simulation, les mutations et sauvegardes sont bloquees.','Statut affiche en haut du menu.')
+        22=@('Retour du plan temporaire','Recharge le plan actif avant le premier profil de la session.','Change uniquement le plan d alimentation.','Fichier temporaire supprime apres succes.')
+        23=@('Couts energetiques','Compare qualitativement les trois plans proposes.','Aucune modification et aucun prix reel calcule.','Comparaison affichee dans la console.')
+        24=@('Diagnostic reseau','Lit les interfaces, teste le DNS puis une connexion HTTPS.','Aucune configuration reseau modifiee.','Localisation de la panne par couche.')
+        25=@('Diagnostic Windows Update','Lit trois services, les derniers correctifs et les indices de redemarrage.','Aucune modification.','Etat Update affiche dans la console.')
+        26=@('Pilotes en erreur','Recherche les peripheriques avec un code erreur Windows.','Aucun pilote telecharge, retire ou installe.','Liste des peripheriques a examiner.')
+        27=@('Rapport batterie','Detecte la batterie puis demande le rapport officiel a powercfg.','Ecrit uniquement un rapport HTML local.','Historique de capacite et autonomie estimee.')
+        28=@('Point de restauration','Demande a la Protection du systeme un point Windows Care.','Requiert les droits administrateur et la protection activee.','Point a verifier dans Protection du systeme.')
+        29=@('Dossier de support','Collecte materiel, Windows, sante, Update, pilotes, demarrage et journaux.','Ecrit des fichiers locaux pouvant contenir des informations personnelles.','Dossier a relire avant de le partager.')
+    }
+    $item = $guides[$Number]
+    [pscustomobject]@{Title=$item[0];Steps=$item[1];Impact=$item[2];Result=$item[3]}
+}
+
+function Show-ActionGuide {
+    param([ValidateRange(1,29)][int]$Number)
+    $guide = Get-ActionGuide $Number
+    Write-Host "`n--- AVANT L EXECUTION : $($guide.Title.ToUpperInvariant()) ---" -ForegroundColor Cyan
+    Write-Host "Etapes   : $($guide.Steps)"
+    Write-Host "Impact   : $($guide.Impact)" -ForegroundColor Yellow
+    Write-Host "Resultat : $($guide.Result)" -ForegroundColor Gray
+    Write-Host 'Les actions systeme demanderont encore votre confirmation.' -ForegroundColor Cyan
+}
+
 function Unregister-MaintenanceTask {
     if (-not (Confirm-Action 'Supprimer la maintenance hebdomadaire')) { return }
     Invoke-Action 'Suppression de la maintenance hebdomadaire' {
@@ -465,6 +513,8 @@ if ($RemoveMaintenanceTask -or $Restore) {
 if (-not (Test-Administrator)) { Write-Log 'Session standard : diagnostics disponibles, modifications systeme reservees a un administrateur.' 'WARN' }
 do {
     Show-Menu; $choice = Read-Host 'Votre choix'
+    $actionNumber = 0
+    if ([int]::TryParse($choice,[ref]$actionNumber) -and $actionNumber -ge 1 -and $actionNumber -le 29) { Show-ActionGuide $actionNumber }
     try { switch ($choice) {
         '1' { Show-Status; Pause-Tool }
         '2' { Show-HealthScore; Pause-Tool }

@@ -13,6 +13,8 @@ TECH EXCHANGE est la plateforme creee et developpee par son fondateur developpeu
 
 Le menu propose 29 actions. Le mode `-DryRun` bloque les modifications systeme et les sauvegardes ; les diagnostics, journaux et rapports locaux restent disponibles.
 
+Apres chaque choix, Windows Care affiche avant execution les etapes prevues, l impact sur Windows et le resultat attendu. Les actions sensibles conservent ensuite leur demande de confirmation O/N.
+
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\app\SCRIPT_TOOL.ps1 -DryRun
 powershell -NoProfile -ExecutionPolicy Bypass -File .\app\SCRIPT_TOOL.ps1 -ReportOnly
@@ -49,7 +51,7 @@ Le choix 22 restaure manuellement le plan precedent ; il n y a pas de restaurati
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\Test-Tool.ps1
 ```
 
-Les tests chargent les fonctions sans demarrer le menu et simulent les modifications systeme. Les essais du lanceur et du navigateur sont decrits dans `tests/README.md`. La version `1.0.1-rc.5` doit encore etre validee sur des machines virtuelles Windows 10 et 11 avant diffusion comme version stable. Voir `docs/VALIDATION_WINDOWS.md` et `docs/RESULTATS_RC5.md`.
+Les tests chargent les fonctions sans demarrer le menu et simulent les modifications systeme. Les essais du lanceur et du navigateur sont decrits dans `tests/README.md`. La version `1.0.1-rc.6` doit encore etre validee sur des machines virtuelles Windows 10 et 11 avant diffusion comme version stable. Voir `docs/VALIDATION_WINDOWS.md` et `docs/RESULTATS_RC6.md`.
 
 ## Indicateur de sante
 
@@ -68,7 +70,7 @@ Les sources et decisions de la comparaison avec WinUtil, WinScript et les retour
 Le script `build-release.ps1` execute les tests, verifie les fichiers requis, construit `release\SCRIPT_TOOL.zip`, calcule son SHA-256, copie l archive dans `site` et genere `site/version.json` ainsi que les informations de telechargement des pages HTML.
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\build-release.ps1 -Version 1.0.1-rc.5
+powershell -NoProfile -ExecutionPolicy Bypass -File .\build-release.ps1 -Version 1.0.1-rc.6
 ```
 
 ## Site
