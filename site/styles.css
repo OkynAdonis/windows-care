@@ -1,6 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
 
 :root { --ink:#13252b; --muted:#60747a; --paper:#f3f5f1; --white:#fff; --teal:#0b6670; --lime:#c9e85b; --line:#d6dfdc; }
+.release-notice { max-width:1140px; margin:12px auto; padding:20px 24px; border:1px solid var(--teal); background:#e6eee8; color:var(--ink); box-sizing:border-box; }
+.release-notice p { font-size:14px; line-height:1.6; margin:10px 0; }
+.release-notice a { font-weight:600; text-underline-offset:3px; }
+@media (max-width:1240px) { .release-notice { margin:12px 5vw; } }
 * { box-sizing:border-box; }
 html { scroll-behavior:smooth; }
 body { margin:0; background:var(--paper); color:var(--ink); font-family:Manrope, sans-serif; }
