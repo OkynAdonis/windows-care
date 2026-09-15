@@ -4,7 +4,7 @@
 # Ce fichier centralise les fonctions de diagnostic, maintenance et restauration.
 
 [CmdletBinding()]
-param([switch]$DryRun, [switch]$Restore, [switch]$ReportOnly, [switch]$RemoveMaintenanceTask, [string]$DataDirectory)
+param([switch]$DryRun, [switch]$StandardUser, [switch]$Restore, [switch]$ReportOnly, [switch]$RemoveMaintenanceTask, [string]$DataDirectory)
 
 $ErrorActionPreference = 'Stop'
 if (([int][bool]$Restore + [int][bool]$ReportOnly + [int][bool]$RemoveMaintenanceTask) -gt 1) { throw 'Choisir un seul mode : Restore, ReportOnly ou RemoveMaintenanceTask.' }
@@ -106,11 +106,11 @@ function Invoke-NativeCommand {
 
 # Encadre une action pour gerer le mode simulation, les erreurs et le resultat.
 function Invoke-Action {
-    param([string]$Title, [scriptblock]$Action, [switch]$ReadOnly)
+    param([string]$Title, [scriptblock]$Action, [switch]$ReadOnly, [switch]$AllowStandardUser)
     Write-Log $Title
     $script:LastActionSucceeded = $false
     if ($script:Simulation -and -not $ReadOnly) { Write-Log 'Simulation : aucune modification appliquee.' 'WARN'; $script:LastActionSucceeded=$true; return $true }
-    if (-not $ReadOnly -and -not (Test-Administrator)) { Write-Log 'Action refusee : relancer le BAT en administrateur. Les diagnostics restent disponibles.' 'ERROR'; return $false }
+    if (-not $ReadOnly -and -not $AllowStandardUser -and -not (Test-Administrator)) { Write-Log 'Action refusee : relancer le BAT en administrateur. Les diagnostics restent disponibles.' 'ERROR'; return $false }
     try { & $Action | Out-Host; Write-Log "$Title : termine." 'OK'; $script:LastActionSucceeded=$true; return $true }
     catch { Write-Log "$Title : $($_.Exception.Message)" 'ERROR'; return $false }
     finally { foreach ($id in 2..9) { Write-Progress -Id $id -Activity $Title -Completed } }
@@ -238,7 +238,7 @@ function Register-MaintenanceTask {
 
 # Explique le parcours choisi avant son execution et avant toute confirmation.
 function Get-ActionGuide {
-    param([ValidateRange(1,29)][int]$Number)
+    param([ValidateRange(1,36)][int]$Number)
     $guides = @{
         1=@('Etat systeme','Lit Windows, disques, alimentation et reseau.','Aucune modification.','Resume affiche dans la console.')
         2=@('Score de sante','Mesure stockage, demarrage, antivirus, pare-feu et reseau.','Aucune modification.','Score, couverture et recommandations.')
@@ -269,13 +269,20 @@ function Get-ActionGuide {
         27=@('Rapport batterie','Detecte la batterie puis demande le rapport officiel a powercfg.','Ecrit uniquement un rapport HTML local.','Historique de capacite et autonomie estimee.')
         28=@('Point de restauration','Demande a la Protection du systeme un point Windows Care.','Requiert les droits administrateur et la protection activee.','Point a verifier dans Protection du systeme.')
         29=@('Dossier de support','Collecte materiel, Windows, sante, Update, pilotes, demarrage et journaux.','Ecrit des fichiers locaux pouvant contenir des informations personnelles.','Dossier a relire avant de le partager.')
+        30=@('Centre des applications','Utilise WinGet pour diagnostiquer ses sources, lister les mises a jour, agir sur un identifiant exact ou exporter un inventaire.','Une mise a jour ou une reparation demande une confirmation ; aucun traitement global automatique.','Resultat WinGet journalise ou inventaire JSON local.')
+        31=@('Diagnostic systeme avance','Regroupe ressources, processus lourds, erreurs critiques, stabilite et export JSON.','Diagnostics en lecture seule ; seul un rapport local peut etre ecrit.','Causes probables de lenteur ou instabilite plus faciles a isoler.')
+        32=@('Centre Microsoft Defender','Affiche la protection et les menaces, puis propose mise a jour et analyses rapide, complete ou hors ligne.','Les mutations demandent confirmation ; l analyse hors ligne redemarre Windows.','Etat et resultat des operations Defender journalises.')
+        33=@('Diagnostic Windows progressif','Execute separement ou successivement CheckHealth, ScanHealth, SFC VerifyOnly et CHKDSK Scan.','Les diagnostics ne reparent rien ; la reparation DISM/SFC reste un choix confirme.','Codes et sorties de chaque etape journalises.')
+        34=@('Diagnostic reseau avance','Examine couches, IP, routes, proxys, latence, DNS et interfaces.','Aucune modification sauf si la reinitialisation distincte est choisie et confirmee.','Origine probable de la panne reseau mieux localisee.')
+        35=@('Outils Microsoft Sysinternals','Verifie, installe via un identifiant WinGet exact ou ouvre cinq outils Microsoft.','Installation et lancement demandent confirmation ; aucun outil n est telecharge en silence.','Outil choisi disponible pour une analyse specialisee.')
+        36=@('Premiers secours','Oriente les diagnostics selon un PC lent, Windows instable, le reseau ou la securite.','Commence par observer ; les reparations restent dans leurs centres confirmes.','Diagnostic guide et prochaine action expliquee.')
     }
     $item = $guides[$Number]
     [pscustomobject]@{Title=$item[0];Steps=$item[1];Impact=$item[2];Result=$item[3]}
 }
 
 function Show-ActionGuide {
-    param([ValidateRange(1,29)][int]$Number)
+    param([ValidateRange(1,36)][int]$Number)
     $guide = Get-ActionGuide $Number
     Write-Host "`n--- AVANT L EXECUTION : $($guide.Title.ToUpperInvariant()) ---" -ForegroundColor Cyan
     Write-Host "Etapes   : $($guide.Steps)"
@@ -497,12 +504,26 @@ function Show-Menu {
     Write-Host '  [27] Creer un rapport batterie'
     Write-Host '  [28] Creer un point de restauration Windows'
     Write-Host '  [29] Creer un dossier de support partageable'
+    Write-Host '  [30] Centre de reparation des applications (WinGet)'
+    Write-Host '  [31] Diagnostic systeme avance'
+    Write-Host '  [32] Centre Microsoft Defender'
+    Write-Host '  [33] Diagnostic Windows progressif'
+    Write-Host '  [34] Diagnostic reseau avance'
+    Write-Host '  [35] Outils Microsoft Sysinternals'
+    Write-Host '  [36] Premiers secours guides'
     Write-Host '  [ 0] Quitter'
 }
 
 . (Join-Path $script:Root 'State.ps1')
 . (Join-Path $script:Root 'Health.ps1')
 . (Join-Path $script:Root 'Support.ps1')
+. (Join-Path $script:Root 'Apps.ps1')
+. (Join-Path $script:Root 'SystemDiagnostics.ps1')
+. (Join-Path $script:Root 'Defender.ps1')
+. (Join-Path $script:Root 'ProgressiveDiagnostic.ps1')
+. (Join-Path $script:Root 'AdvancedNetwork.ps1')
+. (Join-Path $script:Root 'Sysinternals.ps1')
+. (Join-Path $script:Root 'FirstAid.ps1')
 if ($ReportOnly) { try { New-HealthReport; exit 0 } catch { Write-Log $_.Exception.Message 'ERROR'; exit 1 } }
 if ($RemoveMaintenanceTask -or $Restore) {
     try {
@@ -514,7 +535,7 @@ if (-not (Test-Administrator)) { Write-Log 'Session standard : diagnostics dispo
 do {
     Show-Menu; $choice = Read-Host 'Votre choix'
     $actionNumber = 0
-    if ([int]::TryParse($choice,[ref]$actionNumber) -and $actionNumber -ge 1 -and $actionNumber -le 29) { Show-ActionGuide $actionNumber }
+    if ([int]::TryParse($choice,[ref]$actionNumber) -and $actionNumber -ge 1 -and $actionNumber -le 36) { Show-ActionGuide $actionNumber }
     try { switch ($choice) {
         '1' { Show-Status; Pause-Tool }
         '2' { Show-HealthScore; Pause-Tool }
@@ -545,6 +566,13 @@ do {
         '27' { New-BatteryDiagnostic; Pause-Tool }
         '28' { New-SystemRestorePoint; Pause-Tool }
         '29' { New-SupportBundle; Pause-Tool }
+        '30' { Start-ApplicationRepairCenter }
+        '31' { Start-AdvancedSystemDiagnosticCenter }
+        '32' { Start-DefenderCenter }
+        '33' { Start-ProgressiveDiagnosticCenter }
+        '34' { Start-AdvancedNetworkCenter }
+        '35' { Start-SysinternalsCenter }
+        '36' { Start-FirstAidCenter }
         '0' { return }
         default { Write-Log 'Choix invalide.' 'WARN'; Pause-Tool }
     }

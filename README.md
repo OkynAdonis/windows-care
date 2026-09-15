@@ -11,13 +11,14 @@ TECH EXCHANGE est la plateforme creee et developpee par son fondateur developpeu
 3. Accepter l elevation administrateur lorsque Windows la demande.
 4. Choisir une action dans le menu vertical.
 
-Le menu propose 29 actions. Le mode `-DryRun` bloque les modifications systeme et les sauvegardes ; les diagnostics, journaux et rapports locaux restent disponibles.
+Le menu propose 36 actions. Le mode `-DryRun` bloque les modifications systeme et les sauvegardes ; les diagnostics, journaux et rapports locaux restent disponibles.
 
 Apres chaque choix, Windows Care affiche avant execution les etapes prevues, l impact sur Windows et le resultat attendu. Les actions sensibles conservent ensuite leur demande de confirmation O/N.
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\app\SCRIPT_TOOL.ps1 -DryRun
 powershell -NoProfile -ExecutionPolicy Bypass -File .\app\SCRIPT_TOOL.ps1 -ReportOnly
+app\SCRIPT_TOOL.bat -StandardUser
 ```
 
 Les commandes de cette page supposent le depot source. Dans le ZIP extrait, retirer `app\` du chemin du moteur.
@@ -25,6 +26,7 @@ Les commandes de cette page supposent le depot source. Dans le ZIP extrait, reti
 Les donnees sont stockees dans `app\data` dans le depot, ou `data` a cote du moteur apres extraction du ZIP. Si ce dossier est non inscriptible, l outil utilise `%LOCALAPPDATA%\WindowsCare\data` et affiche ce changement. Le parametre PowerShell `-DataDirectory` permet de choisir explicitement un dossier ; s il est inaccessible, le lancement echoue clairement. Conserver `State.ps1`, `Health.ps1` et `Support.ps1` avec `SCRIPT_TOOL.ps1`.
 
 Le BAT ne demande pas d elevation pour `-DryRun` ou `-ReportOnly`. Un lancement PowerShell direct en session standard autorise les diagnostics et refuse les modifications systeme.
+Le parametre `-StandardUser` lance volontairement le menu sans elevation. Il sert notamment aux mises a jour et reparations WinGet des applications installees pour le compte courant ; les autres modifications systeme restent refusees.
 
 ## Sauvegardes et limites
 
@@ -51,7 +53,7 @@ Le choix 22 restaure manuellement le plan precedent ; il n y a pas de restaurati
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\Test-Tool.ps1
 ```
 
-Les tests chargent les fonctions sans demarrer le menu et simulent les modifications systeme. Les essais du lanceur et du navigateur sont decrits dans `tests/README.md`. La version `1.0.1-rc.6` doit encore etre validee sur des machines virtuelles Windows 10 et 11 avant diffusion comme version stable. Voir `docs/VALIDATION_WINDOWS.md` et `docs/RESULTATS_RC6.md`.
+Les tests chargent les fonctions sans demarrer le menu et simulent les modifications systeme. Les essais du lanceur et du navigateur sont decrits dans `tests/README.md`. La version `1.0.1-rc.9` doit encore etre validee sur des machines virtuelles Windows 10 et 11 avant diffusion comme version stable. Voir `docs/VALIDATION_WINDOWS.md` et `docs/RESULTATS_RC9.md`.
 
 ## Indicateur de sante
 
@@ -70,12 +72,18 @@ Les sources et decisions de la comparaison avec WinUtil, WinScript et les retour
 Le script `build-release.ps1` execute les tests, verifie les fichiers requis, construit `release\SCRIPT_TOOL.zip`, calcule son SHA-256, copie l archive dans `site` et genere `site/version.json` ainsi que les informations de telechargement des pages HTML.
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\build-release.ps1 -Version 1.0.1-rc.6
+powershell -NoProfile -ExecutionPolicy Bypass -File .\build-release.ps1 -Version 1.0.1-rc.9
 ```
 
 ## Site
 
-Le dossier `site` contient la page de presentation, le guide des 29 actions et l archive telechargeable. Le workflow GitHub Pages teste et reconstruit la release sous Windows avant de publier le site a chaque push sur `main`.
+Le choix 30 ouvre le centre de reparation des applications. Il verifie WinGet et ses sources, liste les mises a jour, met a jour ou repare un identifiant exact apres confirmation, et exporte un inventaire JSON. Il ne lance aucune mise a jour globale automatique. La reparation depend de la commande declaree par le package et de la version de WinGet installee.
+
+Le choix 31 regroupe le diagnostic systeme avance : ressources, processus lourds, evenements critiques, historique de stabilite et rapport JSON. Le choix 32 regroupe les commandes Microsoft Defender : etat, historique des menaces, signatures et analyses. L analyse hors ligne avertit explicitement du redemarrage avant confirmation.
+
+Les choix 33 a 36 ajoutent un diagnostic Windows progressif sans reparation automatique, un diagnostic reseau avance, cinq utilitaires Microsoft Sysinternals optionnels et des parcours de premiers secours bases sur le symptome. Les sous-menus conservent un retour direct au menu principal.
+
+Le dossier `site` contient la page de presentation, le guide des 36 actions et l archive telechargeable. Le workflow GitHub Pages teste et reconstruit la release sous Windows avant de publier le site a chaque push sur `main`.
 
 ## Organisation
 

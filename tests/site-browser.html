@@ -31,6 +31,7 @@
   };
   try {
     let { win, doc } = await load('guide', 360);
+    assert(doc.querySelector('link[rel="icon"][data-product-icon="windows-care"]'), 'Guide Windows Care tab icon missing');
     const input = doc.querySelector('#action-search');
     const search = (text) => {
       input.value = text;
@@ -44,13 +45,14 @@
     assert(doc.querySelector('#action-search-status').textContent.includes('Aucune'), 'Empty search feedback missing');
     assert(Array.from(doc.querySelectorAll('.action-card')).every(c => win.getComputedStyle(c).display === 'none'), 'Filtered cards remain displayed');
     search('');
-    assert(Array.from(doc.querySelectorAll('.action-card')).filter(c => !c.hidden).length === 29, 'Search reset did not restore 29 cards');
+    assert(Array.from(doc.querySelectorAll('.action-card')).filter(c => !c.hidden).length === 36, 'Search reset did not restore 36 cards');
     search('confidentialite');
     win.dispatchEvent(new win.PageTransitionEvent('pageshow', { persisted: true }));
-    assert(doc.querySelector('#action-search-status').textContent.includes('sur 29'), 'Restored search state missing');
+    assert(doc.querySelector('#action-search-status').textContent.includes('sur 36'), 'Restored search state missing');
     assert(win.__errors.length === 0, win.__errors.join(';'));
 
     ({ win, doc } = await load('index'));
+    assert(doc.querySelector('link[rel="icon"][data-product-icon="windows-care"]'), 'Windows Care tab icon missing');
     const button = doc.querySelector('[data-download]');
     const label = button.textContent;
     // Empêcher uniquement l'effet natif du téléchargement après son gestionnaire.

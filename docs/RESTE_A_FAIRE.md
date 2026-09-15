@@ -4,12 +4,12 @@ Derniere mise a jour : 15 septembre 2026.
 
 ## Etat au moment de la pause
 
-- Candidate publique : `1.0.1-rc.6`.
+- Candidate locale en cours : `1.0.1-rc.9` ; la publication reste a effectuer.
 - Site : https://okynadonis.github.io/windows-care/
 - Dernier commit fonctionnel : `fcb34d2`.
 - SHA-256 du ZIP public : `42FBCD13F63400188D1D065F26BAECB4E489CEEBE74A36B625BB8BB32B900080`.
-- Menu : 29 actions avec explication avant execution, confirmation des mutations et indicateurs de progression.
-- Validation automatisee : 38 tests moteur, 4 scenarios BAT et 52 assertions navigateur.
+- Menu : 36 actions avec explication avant execution, confirmation des mutations et indicateurs de progression.
+- Validation automatisee : 47 tests moteur, 5 scenarios BAT et 54 assertions navigateur.
 - Validation reelle acquise sur Windows 11 en session standard : score de sante, rapport planifie, reseau, Windows Update, pilotes, batterie et dossier de support.
 - La version reste une preversion tant que la recette des mutations en VM n est pas terminee.
 
@@ -19,7 +19,14 @@ Preparer une VM Windows 10 et une VM Windows 11 avec un instantane propre avant 
 
 - [ ] Lancer le ZIP depuis un chemin simple puis depuis un chemin avec espaces et caracteres speciaux.
 - [ ] Tester le lancement administrateur, le refus UAC et une session standard.
-- [ ] Tester le mode simulation sur les 29 choix et confirmer qu aucune mutation ni sauvegarde systeme n est effectuee.
+- [ ] Tester le mode simulation sur les 36 choix et confirmer qu aucune mutation ni sauvegarde systeme n est effectuee.
+- [ ] Tester le centre des applications avec et sans WinGet, puis mettre a jour et reparer des packages compatibles et incompatibles.
+- [ ] Comparer les ressources du diagnostic avance avec le Gestionnaire des taches et verifier les evenements sur Windows 10/11.
+- [ ] Tester les analyses Defender rapide, complete et hors ligne, y compris avec un antivirus tiers.
+- [ ] Tester les quatre etapes du diagnostic progressif sur un Windows sain puis volontairement endommage en VM.
+- [ ] Tester le reseau avance hors ligne, derriere un proxy, avec VPN et interfaces virtuelles.
+- [ ] Installer et lancer chaque outil Sysinternals propose, puis tester son absence et une installation refusee.
+- [ ] Faire suivre les quatre parcours de premiers secours par un utilisateur qui ne connait pas PowerShell.
 - [ ] Tester les profils Equilibre et Gaming, puis restaurer le plan avec le choix 22.
 - [ ] Appliquer et restaurer les reglages de confidentialite et Windows Search.
 - [ ] Configurer Google DNS et Cloudflare, puis restaurer le DNS automatique et un DNS personnalise initial.
@@ -52,7 +59,7 @@ Pour chaque essai, conserver la version et la langue de Windows, le type de comp
 - [ ] Tester le zoom navigateur a 200 % et 400 %.
 - [ ] Tester le mode de mouvement reduit et verifier que les loaders restent comprehensibles.
 - [ ] Faire un parcours avec Narrateur Windows ou NVDA.
-- [ ] Remplacer la capture ancienne du menu par une capture propre montrant les 29 actions.
+- [ ] Remplacer la capture ancienne du menu par une capture propre montrant les 36 actions.
 
 ## Priorite 4 - retours des premiers utilisateurs
 

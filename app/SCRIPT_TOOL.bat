@@ -10,13 +10,17 @@ if /i "%~1"=="-DryRun" (
     set "WC_READONLY=1"
     goto accept
 )
+if /i "%~1"=="-StandardUser" (
+    set "WC_READONLY=1"
+    goto accept
+)
 if /i "%~1"=="-Restore" goto accept
 if /i "%~1"=="-RemoveMaintenanceTask" goto accept
 if /i "%~1"=="-ReportOnly" (
     set "WC_REPORT=1"
     goto accept
 )
-echo Argument inconnu. Options : -DryRun -Restore -ReportOnly -RemoveMaintenanceTask
+echo Argument inconnu. Options : -DryRun -StandardUser -Restore -ReportOnly -RemoveMaintenanceTask
 exit /b 2
 :accept
 set "WC_FLAGS=%WC_FLAGS% %~1"

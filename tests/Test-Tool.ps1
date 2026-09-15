@@ -5,6 +5,13 @@ $projectRoot = Split-Path $PSScriptRoot -Parent
 $engine = Join-Path $projectRoot 'app\SCRIPT_TOOL.ps1'
 $support = Join-Path $projectRoot 'app\State.ps1'
 $advanced = Join-Path $projectRoot 'app\Support.ps1'
+$apps = Join-Path $projectRoot 'app\Apps.ps1'
+$systemDiagnostics = Join-Path $projectRoot 'app\SystemDiagnostics.ps1'
+$defender = Join-Path $projectRoot 'app\Defender.ps1'
+$progressive = Join-Path $projectRoot 'app\ProgressiveDiagnostic.ps1'
+$networkAdvanced = Join-Path $projectRoot 'app\AdvancedNetwork.ps1'
+$sysinternals = Join-Path $projectRoot 'app\Sysinternals.ps1'
+$firstAid = Join-Path $projectRoot 'app\FirstAid.ps1'
 $suiteRoot = Join-Path ([IO.Path]::GetTempPath()) ('windows-care-tests-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $suiteRoot | Out-Null
 $script:DataRoot = $suiteRoot
@@ -18,7 +25,7 @@ $script:passed = 0
 function Assert($condition, $message) { if (-not $condition) { throw $message } }
 function Test($name, [scriptblock]$body) { & $body; $script:passed++; Write-Host "PASS $name" -ForegroundColor Green }
 try {
-    foreach ($file in @($engine,$support,(Join-Path $projectRoot 'app\Health.ps1'),$advanced,(Join-Path $projectRoot 'build-release.ps1'))) {
+    foreach ($file in @($engine,$support,(Join-Path $projectRoot 'app\Health.ps1'),$advanced,$apps,$systemDiagnostics,$defender,$progressive,$networkAdvanced,$sysinternals,$firstAid,(Join-Path $projectRoot 'build-release.ps1'))) {
         $errors = $null
         $ast = [Management.Automation.Language.Parser]::ParseFile($file,[ref]$null,[ref]$errors)
         Assert (@($errors).Count -eq 0) "Syntaxe invalide : $file : $errors"
@@ -381,10 +388,101 @@ try {
         Assert ($value.Unavailable -and $value.Name -eq 'Restricted source' -and $value.Error -eq 'Access denied') 'Unavailable support data aborted or disappeared.'
     }
     Test 'Every menu action has a complete pre-execution guide' {
-        foreach($number in 1..29){
+        foreach($number in 1..36){
             $guide=Get-ActionGuide $number
             Assert ($guide.Title -and $guide.Steps -and $guide.Impact -and $guide.Result) "Incomplete guide for action $number."
         }
+    }
+    Test 'WinGet update uses one exact selected package' {
+        function Get-WinGetPath { 'winget.exe' }
+        function Read-WinGetPackageId { 'Vendor.App with spaces' }
+        function Confirm-Action { $true }
+        function Invoke-Action { param($Title,[scriptblock]$Action,[switch]$ReadOnly,[switch]$AllowStandardUser); & $Action; return $true }
+        function Invoke-NativeCommand {
+            param($FilePath,$Arguments,$Title,$SuccessCodes)
+            $script:wingetArguments = @($Arguments)
+            [pscustomobject]@{Success=$true;ExitCode=0}
+        }
+        Update-WinGetPackage | Out-Null
+        Assert ($script:wingetArguments[0] -eq 'upgrade') 'WinGet upgrade command missing.'
+        Assert ($script:wingetArguments[2] -eq 'Vendor.App with spaces') 'Package ID was altered or split.'
+        Assert ('--exact' -in $script:wingetArguments) 'Exact package selection missing.'
+        Assert ('--all' -notin $script:wingetArguments) 'Unexpected global update requested.'
+    }
+    Test 'Simulation blocks WinGet repair command' {
+        function Get-WinGetPath { 'winget.exe' }
+        function Read-WinGetPackageId { 'Vendor.App' }
+        function Confirm-Action { $true }
+        function Test-Administrator { $true }
+        function Invoke-NativeCommand { throw 'WINGET MUTATION REACHED' }
+        $oldSimulation=$script:Simulation
+        try {
+            $script:Simulation=$true
+            Assert (Repair-WinGetPackage) 'Simulated repair did not complete cleanly.'
+        } finally { $script:Simulation=$oldSimulation }
+    }
+    Test 'Missing WinGet cancels application operation cleanly' {
+        function Get-Command { $null }
+        Assert (-not (Show-WinGetUpdates)) 'Missing WinGet was treated as available.'
+    }
+    Test 'Advanced resource snapshot calculates memory and disk capacity' {
+        function Get-CimInstance {
+            param($ClassName,$Filter,$ErrorAction)
+            switch ($ClassName) {
+                'Win32_OperatingSystem' { [pscustomobject]@{Caption='Windows Test';Version='10.0';LastBootUpTime='today';FreePhysicalMemory=2097152} }
+                'Win32_ComputerSystem' { [pscustomobject]@{TotalPhysicalMemory=8GB} }
+                'Win32_Processor' { [pscustomobject]@{Name='CPU Test';NumberOfLogicalProcessors=8} }
+                'Win32_LogicalDisk' { [pscustomobject]@{DeviceID='C:';VolumeName='System';Size=100GB;FreeSpace=25GB} }
+            }
+        }
+        $snapshot=Get-SystemResourceSnapshot
+        Assert ($snapshot.MemoryTotalGB -eq 8 -and $snapshot.MemoryFreeGB -eq 2) 'Memory values are incorrect.'
+        Assert ($snapshot.Disks[0].FreePercent -eq 25) 'Disk free percentage is incorrect.'
+    }
+    Test 'Defender scan is blocked by simulation' {
+        function Test-DefenderAvailable { $true }
+        function Confirm-Action { $true }
+        function Test-Administrator { $true }
+        function Start-MpScan { throw 'DEFENDER SCAN REACHED' }
+        $oldSimulation=$script:Simulation
+        try {
+            $script:Simulation=$true
+            Assert (Start-DefenderScan QuickScan) 'Simulated Defender scan did not complete cleanly.'
+        } finally { $script:Simulation=$oldSimulation }
+    }
+    Test 'Defender offline scan requires explicit confirmation' {
+        function Test-DefenderAvailable { $true }
+        function Get-Command { [pscustomobject]@{Name='Start-MpWDOScan'} }
+        function Confirm-Action { $false }
+        function Start-MpWDOScan { throw 'OFFLINE SCAN REACHED' }
+        Assert (-not (Start-DefenderOfflineScan)) 'Offline scan continued after refusal.'
+    }
+    Test 'Progressive diagnostic runs read-only stages in order' {
+        $script:diagnosticStages=@()
+        function Test-ComponentStoreHealth { $script:diagnosticStages += 'CheckHealth' }
+        function Test-ComponentStoreDeepHealth { $script:diagnosticStages += 'ScanHealth' }
+        function Test-SystemFilesIntegrity { $script:diagnosticStages += 'SFC' }
+        function Test-SystemDriveOnline { $script:diagnosticStages += 'CHKDSK' }
+        Start-ProgressiveWindowsDiagnostic
+        Assert (($script:diagnosticStages -join ',') -eq 'CheckHealth,ScanHealth,SFC,CHKDSK') 'Progressive diagnostic order changed.'
+    }
+    Test 'Sysinternals install targets one exact Microsoft package' {
+        function Get-WinGetPath { 'winget.exe' }
+        function Select-SysinternalsTool { [pscustomobject]@{Name='Autoruns';Package='Microsoft.Sysinternals'} }
+        function Confirm-Action { $true }
+        function Invoke-Action { param($Title,[scriptblock]$Action,[switch]$ReadOnly,[switch]$AllowStandardUser); & $Action; return $true }
+        function Invoke-NativeCommand { param($FilePath,$Arguments,$Title,$SuccessCodes); $script:sysinternalsArguments=@($Arguments); [pscustomobject]@{Success=$true} }
+        Install-SysinternalsTool | Out-Null
+        Assert ($script:sysinternalsArguments[0] -eq 'install') 'Sysinternals install command missing.'
+        Assert ($script:sysinternalsArguments[2] -eq 'Microsoft.Sysinternals') 'Wrong Sysinternals package selected.'
+        Assert ('--exact' -in $script:sysinternalsArguments) 'Sysinternals package is not exact.'
+    }
+    Test 'First aid security path performs diagnostics only' {
+        $script:firstAidCalls=@()
+        function Show-DefenderStatus { $script:firstAidCalls += 'Status'; return $true }
+        function Show-DefenderThreatHistory { $script:firstAidCalls += 'History'; return $true }
+        Start-SecurityFirstAid
+        Assert (($script:firstAidCalls -join ',') -eq 'Status,History') 'Security first aid launched an unexpected operation.'
     }
     Test 'Report generates HTML from diagnostic data' {
         function Get-HealthScore { [pscustomobject]@{Score=70;MeasuredCount=3;TotalCount=5;IsPartial=$true;Records=@([pscustomobject]@{Name='Stockage';Score=70;Status='Attention';Detail='Test';Recommendation='Conseil'})} }

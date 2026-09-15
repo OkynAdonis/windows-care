@@ -8,8 +8,8 @@ New-Item -ItemType Directory -Path $fixture -Force | Out-Null
 try {
     Copy-Item -LiteralPath (Join-Path $projectRoot 'app\SCRIPT_TOOL.bat') -Destination $fixture
     $stub=@'
-param([switch]$DryRun,[switch]$Restore,[switch]$ReportOnly,[switch]$RemoveMaintenanceTask)
-Write-Output "FLAGS DryRun=$DryRun Restore=$Restore ReportOnly=$ReportOnly Remove=$RemoveMaintenanceTask"
+param([switch]$DryRun,[switch]$StandardUser,[switch]$Restore,[switch]$ReportOnly,[switch]$RemoveMaintenanceTask)
+Write-Output "FLAGS DryRun=$DryRun StandardUser=$StandardUser Restore=$Restore ReportOnly=$ReportOnly Remove=$RemoveMaintenanceTask"
 if ($ReportOnly -and $Restore) { exit 7 }
 exit 0
 '@
@@ -18,6 +18,7 @@ exit 0
     $cases=@(
         @{Arguments='-ReportOnly';Exit=0;Text='ReportOnly=True'},
         @{Arguments='-DryRun';Exit=0;Text='DryRun=True'},
+        @{Arguments='-StandardUser';Exit=0;Text='StandardUser=True'},
         @{Arguments='-ReportOnly -Restore';Exit=7;Text='Restore=True'},
         @{Arguments='-ReportOnly -Unknown';Exit=2;Text='Argument inconnu'}
     )
@@ -38,7 +39,7 @@ exit 0
         Write-Host "PASS launcher $($case.Arguments), path with spaces, ampersand and apostrophe"
         $process.Dispose()
     }
-    Write-Host '4 launcher scenarios passed. No elevation or Windows configuration changes.'
+    Write-Host '5 launcher scenarios passed. No elevation or Windows configuration changes.'
 } finally {
     $resolved=[IO.Path]::GetFullPath($fixtureRoot)
     $tempBase=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\')+'\'
