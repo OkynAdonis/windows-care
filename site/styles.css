@@ -177,3 +177,14 @@ footer { border-top:1px solid var(--line); display:grid; font-family:'DM Mono',m
   .console-cursor, .dash-line i { animation:none; }
   .download-button.download-started::after { animation:none; border-color:var(--lime); }
 }
+
+/* Repères de dépannage : liens natifs utilisables même sans JavaScript. */
+.workflow-grid, .symptom-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px; margin-top:32px; }
+.workflow-grid article, .symptom-card { border:1px solid var(--line); background:var(--white); padding:26px; min-width:0; }
+.workflow-grid h2, .symptom-card h3 { font-size:21px; letter-spacing:-.03em; }
+.workflow-grid p, .symptom-card p, #symptomes > p { color:var(--muted); font-size:14px; line-height:1.8; }
+.workflow-grid a, .symptom-card a { color:var(--teal); text-underline-offset:3px; }
+.symptom-card strong { color:var(--ink); }
+.action-card:target { background:#e6eee8; outline:2px solid var(--teal); outline-offset:5px; }
+[id] { scroll-margin-top:24px; }
+@media(max-width:760px) { .workflow-grid, .symptom-grid { grid-template-columns:1fr; } }

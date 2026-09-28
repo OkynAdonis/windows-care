@@ -1,6 +1,17 @@
 # Windows Care by TECH EXCHANGE
 
-Windows Care est un outil local de diagnostic, maintenance et optimisation pour Windows 10 et Windows 11.
+Windows Care est une boite a outils locale pour les techniciens de maintenance et de support Windows 10 et Windows 11.
+
+## Principe d intervention
+
+Le programme se lance depuis le ZIP extrait sur le poste a depanner, sans installateur Windows Care. Deux entrees sont possibles :
+
+- Cause a rechercher : utiliser les diagnostics cibles ou les parcours par symptome (04 et 36), lire les constats, puis choisir l intervention.
+- Audit deja realise : saisir directement le numero de l action adaptee. Aucun diagnostic global n est impose.
+
+Le technicien conserve la decision. Les assistants indiquent les controles et actions possibles sans enchainer automatiquement des reparations. Les anomalies detectees et les pistes ne constituent pas un diagnostic exhaustif de toutes les pannes.
+
+Apres une intervention, relancer le controle pertinent et reproduire le symptome initial, avec redemarrage si demande. Conserver les resultats dans les rapports et journaux locaux. Le guide du site relie les symptomes aux numeros du menu et aux verifications a effectuer.
 
 TECH EXCHANGE est la plateforme creee et developpee par son fondateur developpeur.
 

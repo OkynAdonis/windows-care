@@ -35,6 +35,22 @@ try {
             }
         }
     }
+    Test 'Assistant oriente les cinq symptomes sans lancer de modification' {
+        function Clean-System { throw 'Nettoyage inattendu' }
+        function Reset-Network { throw 'Reinitialisation inattendue' }
+        function Repair-Update { throw 'Reparation Update inattendue' }
+        function Repair-Windows { throw 'Reparation Windows inattendue' }
+        function Set-Privacy { throw 'Modification confidentialite inattendue' }
+        function Set-SearchPrivacy { throw 'Modification Search inattendue' }
+        function Start-SlowComputerFirstAid { $script:orientation += 'lent' }
+        function Start-NetworkFirstAid { $script:orientation += 'reseau' }
+        function Show-WindowsUpdateDiagnostic { $script:orientation += 'update' }
+        function Show-HealthScore { $script:orientation += 'espace' }
+        function Read-Host { $script:assistantChoice }
+        $script:orientation = @()
+        foreach ($script:assistantChoice in @('1','2','3','4','5')) { Start-RepairAssistant }
+        Assert (($script:orientation -join ',') -eq 'lent,reseau,update,espace') 'Les controles attendus ne sont pas proposes.'
+    }
     function Test-Administrator { $true }
     Test 'Native empty output and successful exit' {
         $result = Invoke-NativeCommand "$env:WINDIR\System32\cmd.exe" @('/d','/c','exit 0')
@@ -146,11 +162,14 @@ try {
         $result=Set-Performance Ultimate
         Assert (-not $result -and $script:active -eq '381b4222-f694-41f0-9685-ff5bb260df2e') 'Invalid duplicate was accepted.'
     }
-    Test 'Guided repair stops after Windows Update failure' {
+    Test 'Assistant does not repair when Update diagnostic fails' {
         function Read-Host { param($Prompt); '3' }
-        function Repair-Update { $false }
-        function Repair-Windows { throw 'Second repair was reached.' }
-        Start-RepairAssistant
+        function Show-WindowsUpdateDiagnostic { throw 'Diagnostic indisponible' }
+        function Repair-Update { throw 'Reparation inattendue' }
+        function Repair-Windows { throw 'Reparation inattendue' }
+        $failure = ''
+        try { Start-RepairAssistant } catch { $failure = $_.Exception.Message }
+        Assert ($failure -eq 'Diagnostic indisponible') 'Diagnostic failure must not trigger a repair.'
     }
     Test 'Privacy profile stops after telemetry failure' {
         function Set-Privacy { $false }

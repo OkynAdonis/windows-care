@@ -131,8 +131,22 @@
     actionSearch.addEventListener('input', filterActions);
     filterActions();
   }
+  // Une fiche visee depuis les reperes reste accessible apres une recherche.
+  const revealLinkedAction = () => {
+    const card = cards.find((item) => `#${item.id}` === window.location.hash);
+    if (!card) return;
+    if (actionSearch && card.hidden) {
+      actionSearch.value = '';
+      filterActions();
+    }
+    card.classList.add('is-visible');
+    card.scrollIntoView();
+  };
+  window.addEventListener('hashchange', revealLinkedAction);
+  revealLinkedAction();
   window.addEventListener('pageshow', () => {
     resetDownloads.forEach((reset) => reset());
     filterActions();
+    revealLinkedAction();
   });
 })();

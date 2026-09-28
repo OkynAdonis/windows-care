@@ -44,6 +44,10 @@
     search('zzzz-no-match');
     assert(doc.querySelector('#action-search-status').textContent.includes('Aucune'), 'Empty search feedback missing');
     assert(Array.from(doc.querySelectorAll('.action-card')).every(c => win.getComputedStyle(c).display === 'none'), 'Filtered cards remain displayed');
+    assert(Array.from(doc.querySelectorAll('#symptomes a')).every(a => doc.querySelector(a.getAttribute('href'))), 'Symptom link has no matching action');
+    win.location.hash = '#action-24';
+    win.dispatchEvent(new win.HashChangeEvent('hashchange'));
+    assert(!doc.querySelector('#action-24').hidden && input.value === '', 'Linked action remains hidden by search');
     search('');
     assert(Array.from(doc.querySelectorAll('.action-card')).filter(c => !c.hidden).length === 36, 'Search reset did not restore 36 cards');
     search('confidentialite');

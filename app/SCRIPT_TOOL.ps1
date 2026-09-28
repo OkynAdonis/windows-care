@@ -197,14 +197,16 @@ function Show-PowerEnergyCosts {
 
 # Execute un parcours de diagnostic adapte au probleme choisi par l utilisateur.
 function Start-RepairAssistant {
+    Write-Host 'ORIENTATION TECHNICIEN - diagnostic puis choix de l intervention' -ForegroundColor Cyan
+    Write-Host 'Audit deja fait ? Revenez au menu et saisissez directement le numero de l action.'
     Write-Host '[1] PC lent'; Write-Host '[2] Internet lent'; Write-Host '[3] Windows Update en panne'; Write-Host '[4] Disque presque plein'; Write-Host '[5] Confidentialite'
     $choice = Read-Host 'Quel probleme souhaitez-vous traiter'
     switch ($choice) {
-        '1' { Show-HealthScore; Show-StartupReport; Clean-System }
-        '2' { Show-Status; Reset-Network }
-        '3' { if (Repair-Update) { Repair-Windows | Out-Null } }
-        '4' { Show-HealthScore; Clean-System }
-        '5' { Set-Privacy; Set-SearchPrivacy }
+        '1' { Start-SlowComputerFirstAid }
+        '2' { Start-NetworkFirstAid }
+        '3' { Show-WindowsUpdateDiagnostic; Write-Host 'Si le diagnostic justifie une remise a zero des caches : choix 16. Verifiez ensuite les mises a jour dans Windows et relancez le choix 25.' }
+        '4' { Show-HealthScore; Write-Host 'Si les fichiers temporaires et la corbeille peuvent etre supprimes : choix 5. Verifiez ensuite l espace libre avec le choix 1.' }
+        '5' { Write-Host 'Selon votre audit : choix 10 pour la telemetrie, 11 pour Search, 15 pour les deux. Restauration des reglages sauvegardes : choix 20.' }
         default { Write-Log 'Choix invalide.' 'WARN' }
     }
 }
@@ -243,7 +245,7 @@ function Get-ActionGuide {
         1=@('Etat systeme','Lit Windows, disques, alimentation et reseau.','Aucune modification.','Resume affiche dans la console.')
         2=@('Score de sante','Mesure stockage, demarrage, antivirus, pare-feu et reseau.','Aucune modification.','Score, couverture et recommandations.')
         3=@('Rapport de sante','Calcule les mesures puis construit une page HTML locale.','Ecrit uniquement dans le dossier de donnees.','Rapport HTML horodate.')
-        4=@('Assistant de reparation','Demande le symptome puis propose les diagnostics et reparations adaptes.','Depend du parcours choisi ; chaque mutation reste confirmee.','Parcours guide avec journal.')
+        4=@('Assistant de reparation','Demande le symptome, lance les controles utiles et indique les numeros d actions possibles.','Aucune reparation automatique ; rapports et journaux locaux possibles.','Constats et orientation ; choisir ensuite une action depuis le menu et verifier le resultat.')
         5=@('Nettoyage systeme','Parcourt les dossiers temporaires puis vide la corbeille.','Supprime des fichiers ; Windows Care ne peut pas les restaurer.','Espace libere et elements ignores journalises.')
         6=@('Reparation Windows','Execute DISM, puis SFC uniquement si DISM reussit.','Peut remplacer des fichiers systeme et demander un redemarrage.','Codes de sortie et resultat journalises.')
         7=@('DNS Google','Sauvegarde le DNS de l interface choisie puis configure Google DNS.','Modifie le DNS IPv4 de cette interface.','Restauration disponible par le choix 20.')
@@ -475,6 +477,9 @@ function Show-Menu {
     Write-Host "Journal : $script:LogFile"
     Write-Host "Mode simulation : $script:Simulation`n" -ForegroundColor Yellow
     Write-Host 'CHOISIR UNE ACTION' -ForegroundColor Cyan
+    Write-Host '  Chercher la cause : [36] par symptome | [4] orientation'
+    Write-Host '  Audit deja fait : saisissez directement le numero voulu.'
+    Write-Host '  Apres intervention : relancez le controle et testez le symptome.'
     Write-Host '  [ 1] Etat systeme'
     Write-Host '  [ 2] Score de sante du PC'
     Write-Host '  [ 3] Rapport HTML de sante'

@@ -5,7 +5,7 @@ function Start-SlowComputerFirstAid {
     Show-SystemResourceSnapshot
     Show-HeavyProcesses
     Show-StartupReport
-    Write-Log 'Examinez les processus et le rapport de demarrage avant de nettoyer ou desinstaller une application.' 'WARN'
+    Write-Log 'Selon les constats : [35] Autoruns/Process Explorer, [30] application precise, [5] nettoyage si espace insuffisant. Controle : [31], puis reproduire la lenteur initiale.' 'WARN'
 }
 
 function Start-UnstableWindowsFirstAid {
@@ -15,7 +15,7 @@ function Start-UnstableWindowsFirstAid {
     if ($reboot.Reasons.Count) { Write-Host "Raisons : $($reboot.Reasons -join ', ')" }
     Show-RecentCriticalEvents
     Start-ProgressiveWindowsDiagnostic
-    Write-Log 'Si les diagnostics signalent une corruption, utilisez la reparation DISM/SFC depuis le diagnostic progressif.' 'WARN'
+    Write-Log 'Si une corruption est signalee : [6] reparation DISM/SFC. Controle : [33], puis reproduire le probleme apres le redemarrage demande. Une erreur critique seule ne prouve pas une corruption.' 'WARN'
 }
 
 function Start-NetworkFirstAid {
@@ -23,14 +23,14 @@ function Start-NetworkFirstAid {
     Show-NetworkDiagnostic
     Show-NetworkProxyState
     Test-DnsResponseTimes
-    Write-Log 'Ne reinitialisez le reseau qu apres avoir identifie une anomalie de configuration.' 'WARN'
+    Write-Log 'Selon les constats : [34] approfondir, [7/8] DNS public si adapte au reseau, [9] reinitialisation si justifiee. Controle : [24], puis tester le service concerne. Respectez les DNS internes de l entreprise.' 'WARN'
 }
 
 function Start-SecurityFirstAid {
     Write-Host "`nPREMIERS SECOURS - SECURITE" -ForegroundColor Cyan
     Show-DefenderStatus | Out-Null
     Show-DefenderThreatHistory | Out-Null
-    Write-Log 'Utilisez ensuite le centre Microsoft Defender pour mettre a jour les signatures ou lancer une analyse.' 'WARN'
+    Write-Log 'Action : [32] signatures et analyse Defender. Controle : historique et etat dans [32]. Avec un antivirus tiers, utilisez aussi sa console ; un etat Defender seul ne conclut pas a une infection.' 'WARN'
 }
 
 function Start-FirstAidCenter {
